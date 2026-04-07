@@ -1,0 +1,15 @@
+# Devbox artefacts
+.devbox/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# Temp files
+/tmp/

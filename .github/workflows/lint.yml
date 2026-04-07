@@ -1,0 +1,60 @@
+name: "Lint"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  shellcheck:
+    name: "shellcheck"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install shellcheck"
+        run: |
+          sudo apt-get update -y -qq
+          sudo apt-get install -y --no-install-recommends shellcheck
+
+      - name: "Run shellcheck on all shell scripts"
+        # Respect .shellcheckrc for severity; use --severity=warning as a
+        # belt-and-suspenders flag so the step fails on warnings even if the
+        # .shellcheckrc is somehow absent.
+        run: |
+          find . -not -path './.git/*' -name '*.sh' -print0 \
+            | xargs -0 shellcheck --severity=warning
+
+  shfmt:
+    name: "shfmt"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install shfmt"
+        run: |
+          curl -fsSL \
+            https://github.com/mvdan/sh/releases/download/v3.10.0/shfmt_v3.10.0_linux_amd64 \
+            -o /usr/local/bin/shfmt
+          chmod +x /usr/local/bin/shfmt
+
+      - name: "Check shell script formatting (shfmt --diff)"
+        run: |
+          find . -not -path './.git/*' -name '*.sh' -print0 \
+            | xargs -0 shfmt --diff
+
+  json-validate:
+    name: "validate JSON"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Validate all JSON files"
+        run: |
+          find . -not -path './.git/*' -name '*.json' -print0 \
+            | while IFS= read -r -d '' f; do
+                jq empty "$f" && echo "OK: $f" || { echo "INVALID: $f"; exit 1; }
+              done
