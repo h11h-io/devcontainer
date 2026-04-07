@@ -24,17 +24,52 @@ jobs:
           sudo apt-get update -y -qq
           sudo apt-get install -y --no-install-recommends jq git
 
-      - name: "Run git-identity-from-github unit tests"
-        run: bash test/unit/test_git_identity.sh
+      - name: "Run all unit tests"
+        run: |
+          failed=0
+          for t in test/unit/test_*.sh; do
+            echo "--- Running $t ---"
+            if ! bash "$t"; then
+              failed=1
+            fi
+          done
+          exit $failed
 
-      - name: "Run devbox/install.sh unit tests"
-        run: bash test/unit/test_devbox_install.sh
-
-  # ── publish (only runs when both gates pass) ──────────────────────────────
-  publish:
-    name: "Publish features to GHCR"
+  # ── detect which features changed ────────────────────────────────────────
+  detect-changes:
+    name: "Detect changed features"
+    runs-on: ubuntu-latest
     needs: [lint, unit-tests]
     if: ${{ github.ref == 'refs/heads/main' }}
+    outputs:
+      features_changed: ${{ steps.changes.outputs.features_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Determine changed features"
+        id: changes
+        run: |
+          # Compare with the previous commit on main
+          changed_dirs=$(git diff --name-only HEAD~1 HEAD -- src/ 2>/dev/null \
+            | grep '^src/' \
+            | cut -d'/' -f2 \
+            | sort -u \
+            || true)
+          if [ -z "$changed_dirs" ]; then
+            echo "No feature source files changed."
+            echo "features_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changed features: $changed_dirs"
+            echo "features_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── publish (only runs when gates pass AND features changed) ──────────────
+  publish:
+    name: "Publish features to GHCR"
+    needs: [lint, unit-tests, detect-changes]
+    if: ${{ needs.detect-changes.outputs.features_changed == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
