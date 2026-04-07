@@ -1,0 +1,16 @@
+{
+  "default": {
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+    "features": {
+      "git-identity-from-github": {}
+    }
+  },
+  "overwrite_option": {
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+    "features": {
+      "git-identity-from-github": {
+        "overwrite": true
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "scenarios": [
+    {
+      "id": "custom-plugins",
+      "description": "Only built-in plugins; no external cloning",
+      "features": {
+        "oh-my-zsh": {
+          "plugins": "git sudo",
+          "theme": "clean"
+        }
+      },
+      "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04"
+    }
+  ]
+}

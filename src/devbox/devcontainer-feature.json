@@ -1,0 +1,15 @@
+{
+  "id": "devbox",
+  "version": "1.0.0",
+  "name": "Devbox",
+  "description": "Installs Devbox by Jetify — a Nix-based isolated development environment tool. Runs 'devbox install' on container creation and exports the project's Nix profile path into login shells so all devbox-managed tools are available without 'devbox run'.",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "Version of Devbox to install. Use 'latest' for the most recent release."
+    }
+  },
+  "installsAfter": [],
+  "onCreateCommand": "devbox-on-create"
+}

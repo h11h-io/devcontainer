@@ -1,0 +1,121 @@
+name: "Release — publish features to GHCR"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # ── gate 1: lint (shellcheck + shfmt + JSON validation) ──────────────────
+  lint:
+    name: "Lint (gate)"
+    uses: ./.github/workflows/lint.yml
+
+  # ── gate 2: unit tests (no Docker, fast) ─────────────────────────────────
+  unit-tests:
+    name: "Unit tests (gate)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install test dependencies"
+        run: |
+          sudo apt-get update -y -qq
+          sudo apt-get install -y --no-install-recommends jq git
+
+      - name: "Run all unit tests"
+        run: |
+          failed=0
+          for t in test/unit/test_*.sh; do
+            echo "--- Running $t ---"
+            if ! bash "$t"; then
+              failed=1
+            fi
+          done
+          exit $failed
+
+  # ── detect which features changed ────────────────────────────────────────
+  detect-changes:
+    name: "Detect changed features"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests]
+    if: ${{ github.ref == 'refs/heads/main' }}
+    outputs:
+      features_changed: ${{ steps.changes.outputs.features_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Determine changed features"
+        id: changes
+        run: |
+          # Compare the full pushed range on main; fall back for manual runs.
+          head_sha="${{ github.sha }}"
+          base_sha="${{ github.event.before }}"
+
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            # All-zeros SHA means this is the first push to the branch (no previous commit).
+            base_sha=$(git merge-base origin/main "$head_sha" 2>/dev/null || true)
+          fi
+
+          changed_dirs=$(git diff --name-only "$base_sha" "$head_sha" -- src/ 2>/dev/null \
+            | grep '^src/' \
+            | cut -d'/' -f2 \
+            | sort -u \
+            || true)
+          if [ -z "$changed_dirs" ]; then
+            echo "No feature source files changed."
+            echo "features_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changed features: $changed_dirs"
+            echo "features_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── publish (only runs when gates pass AND features changed) ──────────────
+  publish:
+    name: "Publish features to GHCR"
+    needs: [lint, unit-tests, detect-changes]
+    if: ${{ needs.detect-changes.outputs.features_changed == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Publish features"
+        uses: devcontainers/action@v1
+        with:
+          publish-features: "true"
+          base-path-to-features: "./src"
+          generate-docs: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Create PR for auto-generated documentation"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config pull.rebase false
+          branch="automated-documentation-update-${GITHUB_RUN_ID}"
+          git checkout -b "$branch"
+          git add '*/**/README.md'
+          git commit -m 'docs: automated documentation update [skip ci]' || export NO_UPDATES=true
+          if [ "${NO_UPDATES:-false}" != "true" ]; then
+            git push origin "$branch"
+            gh pr create \
+              --title "docs: automated documentation update" \
+              --body "Auto-generated feature documentation from release workflow."
+          fi

@@ -1,0 +1,9 @@
+# .shellcheckrc — project-wide shellcheck configuration
+# https://www.shellcheck.net/
+
+# Default shell for files without a shebang
+shell=bash
+
+# Minimum severity to report (error, warning, info, style)
+# We enforce 'warning' and above; suppress 'info' (e.g. SC2015 in test harnesses)
+severity=warning
