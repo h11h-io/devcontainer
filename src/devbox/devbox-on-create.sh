@@ -28,8 +28,11 @@ add_to_shell() {
 
 if [ -f "${WORKSPACE}/devbox.json" ]; then
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."
-	(cd "${WORKSPACE}" && devbox install)
-	echo "devbox-on-create: devbox install complete."
+	if (cd "${WORKSPACE}" && devbox install); then
+		echo "devbox-on-create: devbox install complete."
+	else
+		echo "devbox-on-create: warning: devbox install failed; continuing so the container can start. Retry manually with 'cd ${WORKSPACE} && devbox install'."
+	fi
 else
 	echo "devbox-on-create: no devbox.json found in ${WORKSPACE}, skipping devbox install."
 fi

@@ -8,7 +8,7 @@
 #
 # This image includes local feature implementations from src/, then at runtime
 # it reads /workspaces/<repo>/.devcontainer/devcontainer.json and runs matching
-# feature installers + lifecycle hooks before dropping into a shell.
+# feature installers before dropping into a shell.
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 
 RUN apt-get update -y \
