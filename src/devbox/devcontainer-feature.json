@@ -1,0 +1,20 @@
+{
+  "id": "devbox",
+  "version": "1.0.0",
+  "name": "Devbox",
+  "description": "Installs Devbox by Jetify — a Nix-based tool for creating isolated, reproducible development environments. Optionally runs 'devbox install' to set up packages defined in devbox.json.",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "Version of Devbox to install. Use 'latest' for the most recent release."
+    },
+    "runInstall": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, run 'devbox install' after installing Devbox to install packages from the workspace devbox.json."
+    }
+  },
+  "installsAfter": [],
+  "postCreateCommand": ""
+}
