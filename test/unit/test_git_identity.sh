@@ -106,12 +106,19 @@ echo ""
 # 2. No token → exits 0, prints warning to stderr
 TEST_HOME=$(new_tmp)
 TEST_BIN=$(new_tmp)
-OUT=$(HOME="$TEST_HOME" GITHUB_TOKEN="" bash "$SCRIPT" 2>&1) || true
+# Shadow coder and gh so they cannot supply fallback tokens (prevents false
+# pass/fail in local devcontainers that have coder or gh CLI installed with auth).
+printf '#!/bin/sh\nexit 1\n' >"$TEST_BIN/coder" && chmod +x "$TEST_BIN/coder"
+printf '#!/bin/sh\nexit 1\n' >"$TEST_BIN/gh" && chmod +x "$TEST_BIN/gh"
+OUT=$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" GITHUB_TOKEN="" bash "$SCRIPT" 2>&1) || true
 echo "$OUT" | grep -q "warning" && pass "no-token: prints warning to stderr" || fail "no-token: prints warning to stderr" "$OUT"
 
 # 3. No token → git identity NOT set
 TEST_HOME=$(new_tmp)
-HOME="$TEST_HOME" GITHUB_TOKEN="" bash "$SCRIPT" 2>/dev/null || true
+TEST_BIN=$(new_tmp)
+printf '#!/bin/sh\nexit 1\n' >"$TEST_BIN/coder" && chmod +x "$TEST_BIN/coder"
+printf '#!/bin/sh\nexit 1\n' >"$TEST_BIN/gh" && chmod +x "$TEST_BIN/gh"
+HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" GITHUB_TOKEN="" bash "$SCRIPT" 2>/dev/null || true
 HOME="$TEST_HOME" git config --global user.name >/dev/null 2>&1 &&
 	fail "no-token: identity should not be set" "user.name was set" ||
 	pass "no-token: does not set git identity"
