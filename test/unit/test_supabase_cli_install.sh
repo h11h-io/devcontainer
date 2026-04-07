@@ -141,18 +141,18 @@ echo ""
 echo "=== supabase-cli/install.sh unit tests ==="
 echo ""
 
-# 1. Fails when docker is not available
-# Use DOCKER_CMD to point at a command that doesn't exist
+# 1. Warns but succeeds when docker is not available
+# DOCKER_CMD="__no_docker_here__" makes command -v fail; install.sh warns and continues.
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 out=$(PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" \
 	DOCKER_CMD="__no_docker_here__" sh "$INSTALL_SCRIPT" 2>&1) && rc=0 || rc=$?
-[ "$rc" -ne 0 ] &&
-	pass "no-docker: exits non-zero when docker unavailable" ||
-	fail "no-docker: exits non-zero when docker unavailable" "exit code was 0"
-echo "$out" | grep -q "ERROR" &&
-	pass "no-docker: prints ERROR message" ||
-	fail "no-docker: prints ERROR message" "output: $out"
+[ "$rc" -eq 0 ] &&
+	pass "no-docker: exits zero when docker unavailable" ||
+	fail "no-docker: exits zero when docker unavailable" "exit code was $rc"
+echo "$out" | grep -q "WARNING" &&
+	pass "no-docker: prints WARNING message" ||
+	fail "no-docker: prints WARNING message" "output: $out"
 
 # 2. Completes successfully with all mocks present (smoke test)
 TEST_BIN=$(new_tmp)
@@ -164,9 +164,10 @@ PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" \
 	fail "smoke: install exits 0 with all mocks present" "exit code was $rc"
 
 # 3. Constructs correct URL for x86_64
+# Use a non-existent version to bypass the "already installed" early-exit check.
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
-PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" \
+PATH="$TEST_BIN:$PATH" VERSION="99.99.99" DOCKERWAITSECONDS="30" \
 	DOCKER_CMD=docker sh "$INSTALL_SCRIPT" >/dev/null 2>&1 || true
 grep -q "linux_amd64" "${TEST_BIN}/curl_calls.log" &&
 	pass "arch-amd64: URL contains linux_amd64" ||
@@ -180,7 +181,7 @@ cat >"${TEST_BIN}/uname" <<'EOF'
 if [ "${1:-}" = "-m" ]; then echo "aarch64"; else /bin/uname "$@"; fi
 EOF
 chmod +x "${TEST_BIN}/uname"
-PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" \
+PATH="$TEST_BIN:$PATH" VERSION="99.99.99" DOCKERWAITSECONDS="30" \
 	DOCKER_CMD=docker sh "$INSTALL_SCRIPT" >/dev/null 2>&1 || true
 grep -q "linux_arm64" "${TEST_BIN}/curl_calls.log" &&
 	pass "arch-arm64: URL contains linux_arm64" ||
@@ -194,8 +195,10 @@ cat >"${TEST_BIN}/uname" <<'EOF'
 if [ "${1:-}" = "-m" ]; then echo "riscv64"; else /bin/uname "$@"; fi
 EOF
 chmod +x "${TEST_BIN}/uname"
-PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" \
-	DOCKER_CMD=docker sh "$INSTALL_SCRIPT" >/dev/null 2>&1 && rc=0 || rc=$?
+rc=0
+PATH="$TEST_BIN:$PATH" VERSION="99.99.99" DOCKERWAITSECONDS="30" \
+	DOCKER_CMD=docker sh "$INSTALL_SCRIPT" >/dev/null 2>&1 ||
+	rc=$?
 [ "$rc" -ne 0 ] &&
 	pass "unsupported-arch: exits non-zero on unsupported architecture" ||
 	fail "unsupported-arch: exits non-zero on unsupported architecture" "exit code was 0"

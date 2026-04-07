@@ -15,5 +15,5 @@
       "description": "Oh My Zsh theme name (e.g. 'robbyrussell', 'agnoster', 'clean')."
     }
   },
-  "installsAfter": ["ghcr.io/h11h-io/devcontainer/devbox:1"]
+  "installsAfter": []
 }

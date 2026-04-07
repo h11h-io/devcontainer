@@ -19,6 +19,10 @@ else
 	curl -fsSL https://get.jetify.com/devbox | DEVBOX_VERSION="${DEVBOX_VERSION}" bash -s -- -f
 fi
 
+# The Jetify installer sets devbox to rwx--x--x (751). Ensure it is world-readable
+# so non-root users (e.g. the 'vscode' user in devcontainer base images) can exec it.
+chmod 755 /usr/local/bin/devbox
+
 echo "devbox: Devbox CLI installed successfully."
 devbox version
 

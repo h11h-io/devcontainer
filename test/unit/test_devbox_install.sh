@@ -108,6 +108,26 @@ fi
 exit 0
 EOF
 	chmod +x "$d/install"
+
+	# chmod mock: no-op only when the target file doesn't exist (e.g. /usr/local/bin/devbox
+	# is absent in a clean test env). For existing files, run the real chmod so that
+	# the install mock can still make helper scripts executable.
+	cat >"$d/chmod" <<'EOF'
+#!/bin/sh
+# Find the last non-flag argument (the target path)
+target=""
+for a; do
+        case "$a" in
+        -*) ;;
+        *) target="$a" ;;
+        esac
+done
+if [ -e "$target" ]; then
+        /bin/chmod "$@"
+fi
+exit 0
+EOF
+	chmod +x "$d/chmod"
 }
 
 # ── tests ──────────────────────────────────────────────────────────────────────
@@ -121,16 +141,16 @@ TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
 grep -q "get.jetify.com/devbox" "${TEST_BIN}/curl_calls.log" &&
-	pass "default: fetches from get.jetify.com/devbox" ||
-	fail "default: fetches from get.jetify.com/devbox" "curl log: $(cat "${TEST_BIN}/curl_calls.log" 2>/dev/null)"
+        pass "default: fetches from get.jetify.com/devbox" ||
+        fail "default: fetches from get.jetify.com/devbox" "curl log: $(cat "${TEST_BIN}/curl_calls.log" 2>/dev/null)"
 
 # 2. VERSION=latest passes '-f' flag to the installer (non-interactive)
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
 grep -q -- "-f" "${TEST_BIN}/curl_calls.log" &&
-	pass "default: passes -f (force) flag" ||
-	fail "default: passes -f (force) flag" "curl log: $(cat "${TEST_BIN}/curl_calls.log" 2>/dev/null)"
+        pass "default: passes -f (force) flag" ||
+        fail "default: passes -f (force) flag" "curl log: $(cat "${TEST_BIN}/curl_calls.log" 2>/dev/null)"
 
 # 3. Specific version sets DEVBOX_VERSION env for the piped bash installer.
 # install.sh runs:  curl ... | DEVBOX_VERSION="<ver>" bash -s -- -f

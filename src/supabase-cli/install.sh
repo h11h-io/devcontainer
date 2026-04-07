@@ -2,15 +2,20 @@
 set -e
 
 SUPABASE_CLI_VERSION="${VERSION:-2.84.2}"
-DOCKER_CMD="${DOCKER_CMD:-docker}"
 DOCKER_WAIT_SECONDS="${DOCKERWAITSECONDS:-30}"
 SUPABASE_BIN="/usr/local/bin/supabase"
 
-# hard dependency: Docker must be available
-if ! command -v "$DOCKER_CMD" >/dev/null 2>&1; then
-	echo "supabase-cli: ERROR: Docker is not available."
-	echo "supabase-cli: Add the 'docker-in-docker' or 'docker-outside-of-docker' feature before 'supabase-cli'."
-	exit 1
+# Docker is required at runtime (for `supabase start`) but NOT at install time.
+# If Docker is absent when this script runs, we warn and continue — the CLI
+# binary is still useful and the postStartCommand will skip the image pre-pull
+# gracefully.
+#
+# DOCKER_CMD can be overridden in tests to simulate Docker being absent.
+_DOCKER_CMD="${DOCKER_CMD:-docker}"
+if ! command -v "$_DOCKER_CMD" >/dev/null 2>&1; then
+	echo "supabase-cli: WARNING: Docker not found at install time."
+	echo "supabase-cli: The CLI will be installed but 'supabase start' will require Docker."
+	echo "supabase-cli: Add the 'docker-in-docker' or 'docker-outside-of-docker' feature to use Supabase locally."
 fi
 
 # skip if already at the requested version
