@@ -14,36 +14,36 @@ FAIL=0
 _ERRORS=()
 
 pass() {
-echo "  PASS  $1"
-PASS=$((PASS + 1))
+	echo "  PASS  $1"
+	PASS=$((PASS + 1))
 }
 fail() {
-echo "  FAIL  $1"
-echo "        $2"
-_ERRORS+=("$1: $2")
-FAIL=$((FAIL + 1))
+	echo "  FAIL  $1"
+	echo "        $2"
+	_ERRORS+=("$1: $2")
+	FAIL=$((FAIL + 1))
 }
 
 summary() {
-echo ""
-echo "Results: ${PASS} passed, ${FAIL} failed"
-if [ "${FAIL}" -gt 0 ]; then
-echo ""
-echo "Failures:"
-for e in "${_ERRORS[@]}"; do echo "  - $e"; done
-exit 1
-fi
+	echo ""
+	echo "Results: ${PASS} passed, ${FAIL} failed"
+	if [ "${FAIL}" -gt 0 ]; then
+		echo ""
+		echo "Failures:"
+		for e in "${_ERRORS[@]}"; do echo "  - $e"; done
+		exit 1
+	fi
 }
 
 _TMPDIRS=()
 new_tmp() {
-local d
-d=$(mktemp -d)
-_TMPDIRS+=("$d")
-echo "$d"
+	local d
+	d=$(mktemp -d)
+	_TMPDIRS+=("$d")
+	echo "$d"
 }
 cleanup() {
-for d in "${_TMPDIRS[@]+"${_TMPDIRS[@]}"}"; do rm -rf "$d"; done
+	for d in "${_TMPDIRS[@]+"${_TMPDIRS[@]}"}"; do rm -rf "$d"; done
 }
 trap cleanup EXIT
 
@@ -69,11 +69,11 @@ EOF
 chmod +x "${TEST_BIN}/curl"
 out=$(PATH="$TEST_BIN:$PATH" VERSION="latest" CODER_CMD="my_coder" sh "$INSTALL_SCRIPT" 2>&1)
 echo "$out" | grep -q "already installed" &&
-pass "already-installed: prints 'already installed' message" ||
-fail "already-installed: prints 'already installed' message" "output: $out"
+	pass "already-installed: prints 'already installed' message" ||
+	fail "already-installed: prints 'already installed' message" "output: $out"
 test ! -f "${CURL_LOG}" &&
-pass "already-installed: curl not called" ||
-fail "already-installed: curl not called" "curl was called: $(cat "${CURL_LOG}")"
+	pass "already-installed: curl not called" ||
+	fail "already-installed: curl not called" "curl was called: $(cat "${CURL_LOG}")"
 
 # 2. Calls curl with coder.com/install.sh when coder is not present
 # Use CODER_CMD pointing at nonexistent command to guarantee "not installed"
@@ -86,10 +86,10 @@ printf '#!/bin/sh\necho "mock installer"\n'
 EOF
 chmod +x "${TEST_BIN}/curl"
 PATH="$TEST_BIN:$PATH" VERSION="latest" CODER_CMD="__no_coder_here__" \
-sh "$INSTALL_SCRIPT" >/dev/null 2>&1 || true
+	sh "$INSTALL_SCRIPT" >/dev/null 2>&1 || true
 grep -q "coder.com/install.sh" "${CURL_LOG}" &&
-pass "latest: curl fetches coder.com/install.sh" ||
-fail "latest: curl fetches coder.com/install.sh" "curl log: $(cat "${CURL_LOG}" 2>/dev/null)"
+	pass "latest: curl fetches coder.com/install.sh" ||
+	fail "latest: curl fetches coder.com/install.sh" "curl log: $(cat "${CURL_LOG}" 2>/dev/null)"
 
 # 3. Passes CODER_VERSION when a specific version is requested
 # We can't easily intercept what env vars the piped `sh` sees, so instead
@@ -105,14 +105,14 @@ printf '#!/bin/sh\necho "mock installer"\n'
 EOF
 chmod +x "${TEST_BIN}/curl"
 out=$(PATH="$TEST_BIN:$PATH" VERSION="2.5.0" CODER_CMD="__no_coder_here__" \
-sh "$INSTALL_SCRIPT" 2>&1) || true
+	sh "$INSTALL_SCRIPT" 2>&1) || true
 grep -q "coder.com/install.sh" "${CURL_LOG}" &&
-pass "versioned: curl fetches coder.com/install.sh" ||
-fail "versioned: curl fetches coder.com/install.sh" "curl log: $(cat "${CURL_LOG}" 2>/dev/null)"
+	pass "versioned: curl fetches coder.com/install.sh" ||
+	fail "versioned: curl fetches coder.com/install.sh" "curl log: $(cat "${CURL_LOG}" 2>/dev/null)"
 # Also verify the WARNING about not found (since mock installer doesn't actually install coder)
 echo "$out" | grep -q "WARNING" &&
-pass "versioned: prints WARNING when coder not found after install" ||
-fail "versioned: prints WARNING when coder not found after install" "output: $out"
+	pass "versioned: prints WARNING when coder not found after install" ||
+	fail "versioned: prints WARNING when coder not found after install" "output: $out"
 
 # 4. Continues (exit 0) when installer fails
 TEST_BIN=$(new_tmp)
@@ -122,10 +122,10 @@ printf '#!/bin/sh\nexit 1\n'
 EOF
 chmod +x "${TEST_BIN}/curl"
 PATH="$TEST_BIN:$PATH" VERSION="latest" CODER_CMD="__no_coder_here__" \
-sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+	sh "$INSTALL_SCRIPT" >/dev/null 2>&1
 rc=$?
 [ "$rc" -eq 0 ] &&
-pass "installer-fails: exits 0 when installer fails (graceful)" ||
-fail "installer-fails: exits 0 when installer fails (graceful)" "exit code was $rc"
+	pass "installer-fails: exits 0 when installer fails (graceful)" ||
+	fail "installer-fails: exits 0 when installer fails (graceful)" "exit code was $rc"
 
 summary

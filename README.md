@@ -218,7 +218,7 @@ Here's an example `devcontainer.json` that uses all features together:
 
 ### Simulating a devcontainer locally
 
-Build and run the simulation Dockerfile, which mounts your repo into `/workspaces/<repo>`, runs the devcontainer CLI, and drops you into a shell:
+Build and run the simulation Dockerfile, which mounts your repo into `/workspaces/<repo>`, applies matching local features from `src/`, runs lifecycle hooks, and drops you into a shell:
 
 ```bash
 docker build -t devcontainer-sim .

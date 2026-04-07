@@ -24,13 +24,34 @@ Inside the repository you want to test, create `.devcontainer/devcontainer.json`
 {
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
   "features": {
-    "ghcr.io/h11h-io/devcontainer/git-identity-from-github:1": {},
-    "ghcr.io/h11h-io/devcontainer/oh-my-zsh:1": {}
+    "ghcr.io/h11h-io/devcontainer/oh-my-zsh:1": {},
+    "ghcr.io/h11h-io/devcontainer/coder:1": {}
   }
 }
 ```
 
 > **Tip:** You can also test this repository's own `.devcontainer/devcontainer.json` by running from here.
+
+### Optional: use the built-in hello-world fixture
+
+This repository includes a reusable fixture at `test/fixtures/hello-world` with:
+
+- A minimal Next.js app that serves `Hello World`
+- `devbox.json` to exercise the Devbox feature
+- `.devcontainer/devcontainer.json` using all local features
+- `.devcontainer/devcontainer.with-docker.json` for Docker-in-Docker parity
+
+From the repo root:
+
+```bash
+cd test/fixtures/hello-world
+```
+
+If you want to test the Docker-in-Docker profile instead, swap it in temporarily:
+
+```bash
+cp .devcontainer/devcontainer.with-docker.json .devcontainer/devcontainer.json
+```
 
 ---
 
@@ -44,10 +65,20 @@ docker run --rm -it \
   devcontainer-sim
 ```
 
+From the devcontainer repo root, using the built-in fixture directly:
+
+```bash
+docker run --rm -it \
+  -v "$(pwd)/test/fixtures/hello-world:/workspaces/hello-world" \
+  devcontainer-sim
+```
+
 The container will:
 1. Find your mounted project under `/workspaces/`
-2. Run `devcontainer features install` using your `.devcontainer/devcontainer.json`
-3. Drop you into a shell so you can poke around
+2. Read your `.devcontainer/devcontainer.json`
+3. Run local feature installers from this repository's `src/` directory for matching feature IDs
+4. Run feature lifecycle hooks (`onCreateCommand`, `postStartCommand`) when declared
+5. Drop you into a shell so you can poke around
 
 ---
 
@@ -82,6 +113,6 @@ Type `exit` when you're done. The container is discarded automatically (`--rm`).
 
 **`No workspace found in /workspaces/`** — make sure you ran the `docker run` command from inside your project directory.
 
-**`devcontainer features install failed`** — the container drops to a shell anyway so you can inspect what went wrong. Check that your `devcontainer.json` is valid JSON and the feature reference is correct.
+**Feature install failed** — the container drops to a shell anyway so you can inspect what went wrong. Check that your `devcontainer.json` is valid JSON and your feature key maps to a local feature in `src/`.
 
 **Feature image not found** — features are published to GHCR. Make sure Docker can reach the internet, or check `ghcr.io/h11h-io/devcontainer` for available tags.
