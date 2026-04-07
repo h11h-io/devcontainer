@@ -1,16 +1,8 @@
 {
-  "default": {
-    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
-    "features": {
-      "devbox": {}
+    "default": {
+        "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+        "features": {
+            "devbox": {}
+        }
     }
-  },
-  "with_run_install": {
-    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
-    "features": {
-      "devbox": {
-        "runInstall": false
-      }
-    }
-  }
 }
