@@ -117,6 +117,5 @@ jobs:
             git push origin "$branch"
             gh pr create \
               --title "docs: automated documentation update" \
-              --body "Auto-generated feature documentation from release workflow." \
-              || echo "::warning::Could not create PR automatically (Actions may lack permission). Please open a PR manually from branch: $branch"
+              --body "Auto-generated feature documentation from release workflow."
           fi
