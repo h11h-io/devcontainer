@@ -2,11 +2,12 @@
 set -e
 
 SUPABASE_CLI_VERSION="${VERSION:-2.84.2}"
+DOCKER_CMD="${DOCKER_CMD:-docker}"
 DOCKER_WAIT_SECONDS="${DOCKERWAITSECONDS:-30}"
 SUPABASE_BIN="/usr/local/bin/supabase"
 
 # hard dependency: Docker must be available
-if ! command -v docker >/dev/null 2>&1; then
+if ! command -v "$DOCKER_CMD" >/dev/null 2>&1; then
 	echo "supabase-cli: ERROR: Docker is not available."
 	echo "supabase-cli: Add the 'docker-in-docker' or 'docker-outside-of-docker' feature before 'supabase-cli'."
 	exit 1

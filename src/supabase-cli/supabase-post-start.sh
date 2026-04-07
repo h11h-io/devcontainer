@@ -4,6 +4,8 @@
 set -uo pipefail
 
 WORKSPACE="${containerWorkspaceFolder:-$PWD}"
+DOCKER_CMD="${DOCKER_CMD:-docker}"
+SUPABASE_CMD="${SUPABASE_CMD:-supabase}"
 DOCKER_WAIT_SECONDS="${SUPABASE_DOCKER_WAIT_SECONDS:-30}"
 PREPULL_MARKER="${HOME}/.cache/devcontainer/supabase-prepull.done"
 
@@ -18,7 +20,7 @@ if [ -f "$PREPULL_MARKER" ]; then
 fi
 
 # Require supabase CLI
-if ! command -v supabase >/dev/null 2>&1; then
+if ! command -v "$SUPABASE_CMD" >/dev/null 2>&1; then
 	log "supabase CLI not found; skipping image pre-pull."
 	exit 0
 fi
@@ -27,7 +29,7 @@ fi
 log "waiting for Docker daemon (timeout ${DOCKER_WAIT_SECONDS}s)..."
 ready=false
 for _ in $(seq 1 "$DOCKER_WAIT_SECONDS"); do
-	if docker info >/dev/null 2>&1; then
+	if "$DOCKER_CMD" info >/dev/null 2>&1; then
 		ready=true
 		break
 	fi
@@ -40,7 +42,7 @@ if [ "$ready" != "true" ]; then
 fi
 
 log "Docker is ready; pre-pulling Supabase images..."
-if (cd "$WORKSPACE" && supabase start && supabase stop); then
+if (cd "$WORKSPACE" && "$SUPABASE_CMD" start && "$SUPABASE_CMD" stop); then
 	touch "$PREPULL_MARKER"
 	log "Supabase image pre-pull complete."
 else

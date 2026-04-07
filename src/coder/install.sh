@@ -2,8 +2,9 @@
 set -e
 
 CODER_VERSION="${VERSION:-latest}"
+CODER_CMD="${CODER_CMD:-coder}"
 
-if command -v coder >/dev/null 2>&1; then
+if command -v "$CODER_CMD" >/dev/null 2>&1; then
 	echo "coder: Coder CLI already installed ($(coder version 2>/dev/null | head -1)); skipping."
 	exit 0
 fi
@@ -15,7 +16,7 @@ else
 	curl -fsSL https://coder.com/install.sh | CODER_VERSION="$CODER_VERSION" sh || echo "coder: WARNING: Coder CLI install failed. Continuing."
 fi
 
-if command -v coder >/dev/null 2>&1; then
+if command -v "$CODER_CMD" >/dev/null 2>&1; then
 	echo "coder: Coder CLI installed successfully."
 else
 	echo "coder: WARNING: coder CLI not found after install attempt."
