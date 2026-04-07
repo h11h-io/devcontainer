@@ -3,13 +3,10 @@
 set -euo pipefail
 
 MOCK_BIN=$(mktemp -d)
-# shellcheck disable=SC2064
-trap "rm -rf '$MOCK_BIN'" EXIT
-
 export HOME
 HOME=$(mktemp -d)
 # shellcheck disable=SC2064
-trap "rm -rf '$HOME'" EXIT
+trap "rm -rf '$MOCK_BIN' '$HOME'" EXIT
 
 cat >"$MOCK_BIN/curl" <<'EOF'
 #!/bin/sh

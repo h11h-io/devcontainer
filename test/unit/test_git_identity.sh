@@ -111,7 +111,8 @@ echo "$OUT" | grep -q "warning" && pass "no-token: prints warning to stderr" || 
 
 # 3. No token → git identity NOT set
 TEST_HOME=$(new_tmp)
-git -C "$TEST_HOME" config --global user.name >/dev/null 2>&1 &&
+HOME="$TEST_HOME" GITHUB_TOKEN="" bash "$SCRIPT" 2>/dev/null || true
+HOME="$TEST_HOME" git config --global user.name >/dev/null 2>&1 &&
 	fail "no-token: identity should not be set" "user.name was set" ||
 	pass "no-token: does not set git identity"
 

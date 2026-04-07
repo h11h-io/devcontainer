@@ -56,8 +56,16 @@ jobs:
       - name: "Determine changed features"
         id: changes
         run: |
-          # Compare with the previous commit on main
-          changed_dirs=$(git diff --name-only HEAD~1 HEAD -- src/ 2>/dev/null \
+          # Compare the full pushed range on main; fall back for manual runs.
+          head_sha="${{ github.sha }}"
+          base_sha="${{ github.event.before }}"
+
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            # All-zeros SHA means this is the first push to the branch (no previous commit).
+            base_sha=$(git merge-base origin/main "$head_sha" 2>/dev/null || true)
+          fi
+
+          changed_dirs=$(git diff --name-only "$base_sha" "$head_sha" -- src/ 2>/dev/null \
             | grep '^src/' \
             | cut -d'/' -f2 \
             | sort -u \

@@ -12,6 +12,12 @@ set -euo pipefail
 OVERWRITE="${OVERWRITE:-false}"
 
 configure_git_identity() {
+	# Require git to be installed; warn and skip rather than failing the container.
+	if ! command -v git >/dev/null 2>&1; then
+		echo "configure-git-identity: warning: git not found; skipping identity setup." >&2
+		return 0
+	fi
+
 	# Skip if already configured (unless overwrite is requested)
 	if [ "$OVERWRITE" != "true" ]; then
 		if git config --global user.email >/dev/null 2>&1 &&
