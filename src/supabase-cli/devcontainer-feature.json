@@ -1,0 +1,23 @@
+{
+  "id": "supabase-cli",
+  "version": "1.0.0",
+  "name": "Supabase CLI",
+  "description": "Installs the Supabase CLI. Requires the docker-in-docker (or docker-outside-of-docker) feature — Supabase needs a Docker daemon to start local services. Pre-pulls Supabase Docker images on first container start via postStartCommand.",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "2.84.2",
+      "description": "Version of the Supabase CLI to install (e.g. '2.84.2'). Must match a tag on the supabase/cli GitHub releases page."
+    },
+    "dockerWaitSeconds": {
+      "type": "string",
+      "default": "30",
+      "description": "Seconds to wait for the Docker daemon to become ready before pre-pulling Supabase images."
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/docker-in-docker:2",
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1"
+  ],
+  "postStartCommand": "supabase-post-start"
+}

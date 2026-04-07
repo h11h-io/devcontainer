@@ -1,0 +1,19 @@
+{
+  "id": "oh-my-zsh",
+  "version": "1.0.0",
+  "name": "Oh My Zsh",
+  "description": "Installs zsh and Oh My Zsh with a configurable set of plugins and theme. External plugins (zsh-autosuggestions, zsh-syntax-highlighting, pnpm, etc.) are cloned automatically. Writes a managed .zshrc and sets zsh as the default shell.",
+  "options": {
+    "plugins": {
+      "type": "string",
+      "default": "git sudo z history colored-man-pages zsh-autosuggestions zsh-syntax-highlighting pnpm",
+      "description": "Space-separated list of Oh My Zsh plugins to activate. Built-in plugins are enabled directly; the following external plugins are recognised by name and cloned automatically: zsh-autosuggestions, zsh-syntax-highlighting, zsh-completions, zsh-history-substring-search, pnpm. If this option is specified, it completely replaces the default list."
+    },
+    "theme": {
+      "type": "string",
+      "default": "robbyrussell",
+      "description": "Oh My Zsh theme name (e.g. 'robbyrussell', 'agnoster', 'clean')."
+    }
+  },
+  "installsAfter": ["ghcr.io/h11h-io/devcontainer/devbox:1"]
+}

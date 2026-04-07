@@ -54,8 +54,9 @@ trap cleanup EXIT
 
 # make_mock_bin <dir>
 # Populates a mock bin dir with:
-#   curl  – records called URL, pipes a no-op installer to stdout
-#   devbox – records each sub-command call; prints mock output
+#   curl    – records called URL, pipes a no-op installer to stdout
+#   devbox  – records each sub-command call; prints mock output
+#   install – non-root mock that parses -o/-g/-m flags and copies src to mock bin dir
 make_mock_bin() {
 	local d="$1"
 	local curl_log="${d}/curl_calls.log"
@@ -83,6 +84,30 @@ case "\${1:-}" in
 esac
 EOF
 	chmod +x "$d/devbox"
+
+	# install mock: non-root, parse args to find src and dest, copy to mock bin dir
+	cat >"$d/install" <<'EOF'
+#!/bin/sh
+# Non-root mock: parse args to find src and dest, copy to mock bin dir
+src=""
+dst=""
+skip_next=false
+for arg in "$@"; do
+	case "$arg" in
+	-o | -g | -m) skip_next=true ;;
+	*)
+		if $skip_next; then skip_next=false; continue; fi
+		if [ -z "$src" ]; then src="$arg"; else dst="$arg"; fi
+		;;
+	esac
+done
+if [ -n "$src" ] && [ -n "$dst" ]; then
+	real_dst="$(dirname "$0")/$(basename "$dst")"
+	cp "$src" "$real_dst" && chmod +x "$real_dst"
+fi
+exit 0
+EOF
+	chmod +x "$d/install"
 }
 
 # ── tests ──────────────────────────────────────────────────────────────────────
@@ -135,24 +160,24 @@ grep -q "^install$" "${TEST_BIN}/devbox_calls.log" &&
 	fail "runinstall=false: devbox install must not be called" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")" ||
 	pass "runinstall=false: devbox install not called"
 
-# 5. RUNINSTALL=true + devbox.json present → 'devbox install' IS called
+# 5. install.sh exits successfully (smoke test, RUNINSTALL ignored since logic moved to on-create)
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 echo '{"packages":[]}' >"${WS}/devbox.json"
-PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="true" containerWorkspaceFolder="$WS" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
-grep -q "^install$" "${TEST_BIN}/devbox_calls.log" &&
-	pass "runinstall=true: devbox install is called when devbox.json exists" ||
-	fail "runinstall=true: devbox install is called when devbox.json exists" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="true" containerWorkspaceFolder="$WS" sh "$INSTALL_SCRIPT" >/dev/null 2>&1 && rc=0 || rc=$?
+[ "$rc" -eq 0 ] &&
+	pass "smoke: install.sh exits 0" ||
+	fail "smoke: install.sh exits 0" "exit code was $rc"
 
-# 6. RUNINSTALL=true but no devbox.json → 'devbox install' is NOT called, exits cleanly
+# 6. install.sh does not call 'devbox install' directly (moved to devbox-on-create)
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
-WS=$(new_tmp) # no devbox.json
+WS=$(new_tmp)
 PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="true" containerWorkspaceFolder="$WS" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
 grep -q "^install$" "${TEST_BIN}/devbox_calls.log" &&
-	fail "runinstall=true+no-json: devbox install must not be called" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")" ||
-	pass "runinstall=true+no-json: devbox install skipped"
+	fail "install-sh: must not call devbox install directly" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")" ||
+	pass "install-sh: devbox install not called directly (handled by on-create)"
 
 # 7. devbox version is called after install (smoke-test that devbox binary works)
 TEST_BIN=$(new_tmp)
@@ -161,5 +186,92 @@ PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" 
 grep -q "^version$" "${TEST_BIN}/devbox_calls.log" &&
 	pass "install: devbox version called after install" ||
 	fail "install: devbox version called after install" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")"
+
+# 8. install.sh installs devbox-on-create helper
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+test -x "${TEST_BIN}/devbox-on-create" &&
+	pass "install: devbox-on-create helper installed" ||
+	fail "install: devbox-on-create helper installed" "not found in ${TEST_BIN}"
+
+summary
+
+# ── devbox-on-create.sh unit tests ────────────────────────────────────────────
+ONCREATE_SCRIPT="${REPO_ROOT}/src/devbox/devbox-on-create.sh"
+
+echo ""
+echo "=== devbox-on-create.sh unit tests ==="
+echo ""
+
+# 8. devbox install IS called when devbox.json exists in workspace
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+CALL_LOG="${TEST_BIN}/devbox_calls.log"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+cat >"${TEST_BIN}/devbox" <<EOF
+#!/bin/sh
+echo "\${1:-}" >> "${CALL_LOG}"
+echo "mock devbox \$*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "^install$" "${CALL_LOG}" &&
+	pass "on-create: devbox install called when devbox.json exists" ||
+	fail "on-create: devbox install called when devbox.json exists" \
+		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
+
+# 9. devbox install is NOT called when devbox.json is absent
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp) # no devbox.json
+CALL_LOG="${TEST_BIN}/devbox_calls.log"
+cat >"${TEST_BIN}/devbox" <<EOF
+#!/bin/sh
+echo "\${1:-}" >> "${CALL_LOG}"
+echo "mock devbox \$*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "^install$" "${CALL_LOG}" 2>/dev/null &&
+	fail "on-create: devbox install must not be called without devbox.json" \
+		"calls: $(cat "${CALL_LOG}" 2>/dev/null)" ||
+	pass "on-create: devbox install skipped when devbox.json absent"
+
+# 10. PATH export block is added to .zshrc and .bashrc
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-project-path" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: PATH block added to .zshrc" ||
+	fail "on-create: PATH block added to .zshrc" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+grep -q "devbox-project-path" "${TEST_HOME}/.bashrc" &&
+	pass "on-create: PATH block added to .bashrc" ||
+	fail "on-create: PATH block added to .bashrc" \
+		".bashrc: $(cat "${TEST_HOME}/.bashrc" 2>/dev/null)"
+
+# 11. PATH export block contains the correct workspace path
+grep -q "${WS}/.devbox/nix/profile/default/bin" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: .zshrc PATH contains workspace devbox profile" ||
+	fail "on-create: .zshrc PATH contains workspace devbox profile" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 12. PATH export is idempotent — second run must not duplicate the block
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+BLOCK_COUNT=$(grep -c "BEGIN devbox-project-path" "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
+[ "${BLOCK_COUNT}" -eq 1 ] &&
+	pass "on-create: PATH export is idempotent (block not duplicated)" ||
+	fail "on-create: PATH export is idempotent (block not duplicated)" \
+		"found ${BLOCK_COUNT} BEGIN markers in .zshrc"
 
 summary
