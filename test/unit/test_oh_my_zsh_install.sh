@@ -293,20 +293,19 @@ LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 	pass "write_zshrc: rejects extraRcFile with unsafe characters" ||
 	fail "write_zshrc: rejects extraRcFile with unsafe characters" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 25. write_zshrc defers snippet evaluation to runtime via extraRcFile (direnv hook pattern)
-# Verify that the source line in .zshrc points to the file rather than inlining code, so that
-# command substitutions like $(direnv hook zsh) are evaluated in the running container, not at
-# build time.
+# 25. write_zshrc defers snippet evaluation to runtime: .zshrc contains a source reference,
+# not command substitution syntax — safe for direnv hooks and other $(…) patterns.
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
 	EXTRARCFILE=".devcontainer/direnv-hook.zsh" \
 	write_zshrc
-# .zshrc must contain a source/runtime reference to the file, not evaluated content
 grep -q 'direnv-hook.zsh' "${TEST_HOME}/.zshrc" &&
-	pass "write_zshrc: extraRcFile source line defers snippet evaluation to runtime" ||
-	fail "write_zshrc: extraRcFile source line defers snippet evaluation to runtime" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
-grep -q 'direnv hook' "${TEST_HOME}/.zshrc" 2>/dev/null &&
-	fail "write_zshrc: extraRcFile must not inline snippet content into .zshrc at build time" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
-	pass "write_zshrc: extraRcFile does not inline snippet content at build time"
+	pass "write_zshrc: extraRcFile writes a source reference, not inlined content" ||
+	fail "write_zshrc: extraRcFile writes a source reference, not inlined content" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+# The .zshrc must not contain any command substitution syntax ($(…)) — file content is
+# never read at build time; command substitutions remain deferred to runtime.
+grep -q '\$(' "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "write_zshrc: .zshrc must not contain command substitution syntax at build time" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "write_zshrc: .zshrc contains no command substitution syntax at build time"
 
 summary
