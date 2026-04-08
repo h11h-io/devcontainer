@@ -4,6 +4,7 @@ set -euo pipefail
 PLUGINS="${PLUGINS:-git sudo z history colored-man-pages zsh-autosuggestions zsh-syntax-highlighting pnpm}"
 THEME="${THEME:-robbyrussell}"
 EXTRARCSNIPPETS="${EXTRARCSNIPPETS:-}"
+EXTRARCFILE="${EXTRARCFILE:-}"
 AUTOSUGGESTSTYLE="${AUTOSUGGESTSTYLE:-}"
 AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
@@ -92,6 +93,24 @@ write_zshrc() {
 		fi
 		if [ -n "${EXTRARCSNIPPETS}" ]; then
 			printf '%s\n' "${EXTRARCSNIPPETS}"
+		fi
+		if [ -n "${EXTRARCFILE}" ]; then
+			case "${EXTRARCFILE}" in
+			*..*) echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains '..'; ignoring." >&2 ;;
+			*[!-a-zA-Z0-9_./]*)
+				echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains unsafe characters; ignoring." >&2
+				;;
+			/*)
+				# Absolute path — source at runtime with existence guard
+				printf '[ -f "%s" ] && source "%s"\n' "${EXTRARCFILE}" "${EXTRARCFILE}"
+				;;
+			*)
+				# Workspace-relative path — resolved at runtime when the workspace is mounted
+				printf 'if [ -n "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}" ] && [ -f "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s" ]; then\n' "${EXTRARCFILE}"
+				printf '\tsource "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s"\n' "${EXTRARCFILE}"
+				printf 'fi\n'
+				;;
+			esac
 		fi
 	} >"${zshrc}"
 

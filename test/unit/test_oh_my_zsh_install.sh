@@ -254,4 +254,67 @@ PATH="${TEST_BIN}:${PATH}" REMOTE_USER_HOME="$TEST_HOME" PLUGINS="zsh-autosugges
 	install_external_plugins 2>/dev/null
 pass "install_external_plugins: does not abort when git clone fails"
 
+# 21. write_zshrc emits a runtime source line for a relative extraRcFile (file need not exist at build time)
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" EXTRARCFILE=".devcontainer/zshrc-extras.sh" \
+	write_zshrc
+grep -q 'zshrc-extras.sh' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: emits runtime source line for relative extraRcFile" ||
+	fail "write_zshrc: emits runtime source line for relative extraRcFile" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 22. write_zshrc still emits source line when extraRcFile does not exist at build time
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" EXTRARCFILE=".devcontainer/nonexistent.sh" \
+	write_zshrc
+grep -q 'nonexistent.sh' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: emits source line for extraRcFile even when file absent at build time" ||
+	fail "write_zshrc: emits source line for extraRcFile even when file absent at build time" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 23. write_zshrc appends both extraRcSnippets (first) and extraRcFile source line when both provided
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS='export SNIPPET_VAR=from_snippet' EXTRARCFILE="extras.sh" \
+	write_zshrc
+ZSHRC_CONTENT=$(cat "${TEST_HOME}/.zshrc")
+SNIPPET_LINE=$(printf '%s\n' "$ZSHRC_CONTENT" | grep -n 'SNIPPET_VAR' | cut -d: -f1 || true)
+FILE_LINE=$(printf '%s\n' "$ZSHRC_CONTENT" | grep -n 'extras.sh' | head -1 | cut -d: -f1 || true)
+if [ -n "$SNIPPET_LINE" ] && [ -n "$FILE_LINE" ] && [ "$SNIPPET_LINE" -lt "$FILE_LINE" ]; then
+	pass "write_zshrc: appends snippets before file source line when both provided"
+else
+	fail "write_zshrc: appends snippets before file source line when both provided" \
+		"snippet_line=${SNIPPET_LINE} file_line=${FILE_LINE}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+fi
+
+# 24. write_zshrc ignores extraRcFile when it is empty
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" EXTRARCFILE="" \
+	write_zshrc
+LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
+[ "${LINE_COUNT}" -eq 5 ] &&
+	pass "write_zshrc: no extra lines when EXTRARCFILE is empty" ||
+	fail "write_zshrc: no extra lines when EXTRARCFILE is empty" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 25. write_zshrc rejects extraRcFile with path traversal (..)
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" EXTRARCFILE="../etc/passwd" \
+	write_zshrc 2>/dev/null
+LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
+[ "${LINE_COUNT}" -eq 5 ] &&
+	pass "write_zshrc: rejects extraRcFile with path traversal (..)" ||
+	fail "write_zshrc: rejects extraRcFile with path traversal (..)" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 26. write_zshrc rejects extraRcFile with unsafe characters (e.g. quotes)
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" EXTRARCFILE='foo"bar.sh' \
+	write_zshrc 2>/dev/null
+LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
+[ "${LINE_COUNT}" -eq 5 ] &&
+	pass "write_zshrc: rejects extraRcFile with unsafe characters" ||
+	fail "write_zshrc: rejects extraRcFile with unsafe characters" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
 summary
