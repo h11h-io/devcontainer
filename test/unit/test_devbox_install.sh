@@ -242,6 +242,28 @@ grep -q "^install$" "${CALL_LOG}" &&
 	fail "on-create: devbox install called when devbox.json exists" \
 		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
 
+# 8b. devbox install receives a newline on stdin (auto-confirms the Nix prompt)
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+STDIN_LOG="${TEST_BIN}/stdin.log"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+cat >"${TEST_BIN}/devbox" <<EOF
+#!/bin/sh
+# Record what was read from stdin when called as "install"
+if [ "\${1:-}" = "install" ]; then
+    read -r line || true
+    echo "stdin:\${line}" >> "${STDIN_LOG}"
+fi
+echo "mock devbox \$*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "^stdin:" "${STDIN_LOG}" &&
+	pass "on-create: devbox install receives newline on stdin (Nix prompt auto-confirmed)" ||
+	fail "on-create: devbox install receives newline on stdin (Nix prompt auto-confirmed)" \
+		"stdin log: $(cat "${STDIN_LOG}" 2>/dev/null)"
+
 # 9. devbox install is NOT called when devbox.json is absent
 TEST_BIN=$(new_tmp)
 WS=$(new_tmp) # no devbox.json

@@ -33,7 +33,10 @@ add_to_shell() {
 
 if [ -f "${WORKSPACE}/devbox.json" ]; then
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."
-	if (cd "${WORKSPACE}" && devbox install); then
+	# Pipe a newline to stdin so that devbox's interactive Nix-installation
+	# prompt ("Press enter to continue or ctrl-c to exit") is auto-confirmed
+	# when the container starts with a TTY attached.
+	if (cd "${WORKSPACE}" && echo "" | devbox install); then
 		echo "devbox-on-create: devbox install complete."
 	else
 		echo "devbox-on-create: warning: devbox install failed; continuing so the container can start. Retry manually with 'cd ${WORKSPACE} && devbox install'."
