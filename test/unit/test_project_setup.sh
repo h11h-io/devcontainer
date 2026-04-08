@@ -86,12 +86,14 @@ make_post_create_mock_bin() {
 	local d="$1"
 	mkdir -p "$d"
 
-	cat >"$d/pnpm" <<EOF
+	for _cmd in pnpm npm yarn bun; do
+		cat >"$d/$_cmd" <<EOF
 #!/bin/sh
-echo "\$@" >> "${d}/pnpm_calls.log"
-echo "mock pnpm \$*"
+echo "\$@" >> "${d}/${_cmd}_calls.log"
+echo "mock $_cmd \$*"
 EOF
-	chmod +x "$d/pnpm"
+		chmod +x "$d/$_cmd"
+	done
 
 	cat >"$d/uv" <<EOF
 #!/bin/sh
@@ -213,14 +215,14 @@ run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>
 	pass "smoke: exits 0 with all options empty/disabled" ||
 	fail "smoke: exits 0 with all options empty/disabled" "exit code was $rc"
 
-# 5. pnpm install is called for a nodeSubdir with package.json
+# 5. pnpm install is called for a nodeSubdir whose package.json names pnpm
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 mkdir -p "${WS}/ui"
-touch "${WS}/ui/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/ui/package.json"
 CFG=$(make_config "ui" "" "" "false" "false")
-run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" PNPM_CMD=pnpm >/dev/null 2>&1
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1
 grep -q "install" "${TEST_BIN}/pnpm_calls.log" &&
 	pass "pnpm: pnpm install called for ui/ with package.json" ||
 	fail "pnpm: pnpm install called for ui/ with package.json" "pnpm_calls: $(cat "${TEST_BIN}/pnpm_calls.log" 2>/dev/null)"
@@ -232,7 +234,7 @@ WS=$(new_tmp)
 mkdir -p "${WS}/ui"
 # no package.json
 CFG=$(make_config "ui" "" "" "false" "false")
-out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" PNPM_CMD=pnpm 2>&1)
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
 test ! -f "${TEST_BIN}/pnpm_calls.log" &&
 	pass "pnpm: pnpm install skipped when package.json absent" ||
 	fail "pnpm: pnpm install skipped when package.json absent" "pnpm was called: $(cat "${TEST_BIN}/pnpm_calls.log" 2>/dev/null)"
@@ -240,14 +242,14 @@ echo "$out" | grep -q "WARNING" &&
 	pass "pnpm: WARNING printed when package.json absent" ||
 	fail "pnpm: WARNING printed when package.json absent" "output: $out"
 
-# 7. pnpm install is skipped when pnpm is not available
+# 7. install is skipped when the detected package manager is not available
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 mkdir -p "${WS}/ui"
-touch "${WS}/ui/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/ui/package.json"
 CFG=$(make_config "ui" "" "" "false" "false")
-out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" PNPM_CMD="__no_pnpm_here__" 2>&1)
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" NODE_PKG_MANAGER_CMD="__no_pnpm_here__" 2>&1)
 echo "$out" | grep -q "WARNING" &&
 	pass "pnpm: WARNING printed when pnpm not found" ||
 	fail "pnpm: WARNING printed when pnpm not found" "output: $out"
@@ -257,9 +259,10 @@ TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 mkdir -p "${WS}/ui" "${WS}/api"
-touch "${WS}/ui/package.json" "${WS}/api/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/ui/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/api/package.json"
 CFG=$(make_config "ui api" "" "" "false" "false")
-run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" PNPM_CMD=pnpm >/dev/null 2>&1
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1
 CALL_COUNT=$(wc -l <"${TEST_BIN}/pnpm_calls.log" 2>/dev/null || echo 0)
 [ "$CALL_COUNT" -eq 2 ] &&
 	pass "pnpm: pnpm install called twice for two node subdirs" ||
@@ -420,10 +423,10 @@ EOF
 chmod +x "${TEST_BIN}/pnpm"
 WS=$(new_tmp)
 mkdir -p "${WS}/ui"
-touch "${WS}/ui/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/ui/package.json"
 CFG=$(make_config "ui" "" "" "false" "false")
 rc=0
-run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" PNPM_CMD=pnpm >/dev/null 2>&1 || rc=$?
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
 [ "$rc" -eq 0 ] &&
 	pass "graceful: script exits 0 when pnpm install fails" ||
 	fail "graceful: script exits 0 when pnpm install fails" "exit code was $rc"
@@ -483,11 +486,12 @@ TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 mkdir -p "${WS}/ui" "${WS}/backend"
-touch "${WS}/ui/package.json" "${WS}/backend/pyproject.toml"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/ui/package.json"
+touch "${WS}/backend/pyproject.toml"
 echo "KEY=val" >"${WS}/.env.example"
 CFG=$(make_config "ui" "backend" ".env.example:.env" "true" "true")
 run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" \
-	PNPM_CMD=pnpm UV_CMD=uv LEFTHOOK_CMD=lefthook DIRENV_CMD=direnv >/dev/null 2>&1
+	UV_CMD=uv LEFTHOOK_CMD=lefthook DIRENV_CMD=direnv >/dev/null 2>&1
 grep -q "install" "${TEST_BIN}/pnpm_calls.log" &&
 	pass "combined: pnpm install called" ||
 	fail "combined: pnpm install called" "pnpm_calls: $(cat "${TEST_BIN}/pnpm_calls.log" 2>/dev/null)"
@@ -503,5 +507,46 @@ grep -q "install" "${TEST_BIN}/lefthook_calls.log" &&
 grep -q "allow" "${TEST_BIN}/direnv_calls.log" &&
 	pass "combined: direnv allow called" ||
 	fail "combined: direnv allow called" "direnv_calls: $(cat "${TEST_BIN}/direnv_calls.log" 2>/dev/null)"
+
+# 26. npm fallback: no packageManager in package.json → npm is used
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+mkdir -p "${WS}/ui"
+printf '{"name":"my-app"}' >"${WS}/ui/package.json"
+CFG=$(make_config "ui" "" "" "false" "false")
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1
+grep -q "install" "${TEST_BIN}/npm_calls.log" &&
+	pass "pkg-manager: falls back to npm when no packageManager field" ||
+	fail "pkg-manager: falls back to npm when no packageManager field" "npm_calls: $(cat "${TEST_BIN}/npm_calls.log" 2>/dev/null)"
+
+# 27. walk-up: packageManager in workspace root package.json used when absent in subdir
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+mkdir -p "${WS}/ui"
+printf '{"name":"ui"}' >"${WS}/ui/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/package.json"
+CFG=$(make_config "ui" "" "" "false" "false")
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1
+grep -q "install" "${TEST_BIN}/pnpm_calls.log" &&
+	pass "pkg-manager: uses packageManager from ancestor package.json" ||
+	fail "pkg-manager: uses packageManager from ancestor package.json" "pnpm_calls: $(cat "${TEST_BIN}/pnpm_calls.log" 2>/dev/null)"
+
+# 28. subdir packageManager takes precedence over ancestor
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+mkdir -p "${WS}/ui"
+printf '{"packageManager":"yarn@4.0.0"}' >"${WS}/ui/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}' >"${WS}/package.json"
+CFG=$(make_config "ui" "" "" "false" "false")
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1
+grep -q "install" "${TEST_BIN}/yarn_calls.log" &&
+	pass "pkg-manager: subdir packageManager takes precedence over ancestor" ||
+	fail "pkg-manager: subdir packageManager takes precedence over ancestor" "yarn_calls: $(cat "${TEST_BIN}/yarn_calls.log" 2>/dev/null)"
+test ! -f "${TEST_BIN}/pnpm_calls.log" &&
+	pass "pkg-manager: ancestor packageManager not used when subdir has one" ||
+	fail "pkg-manager: ancestor packageManager not used when subdir has one" "pnpm was called unexpectedly"
 
 summary

@@ -25,7 +25,7 @@ LEFTHOOK_INSTALL="${PROJECT_SETUP_LEFTHOOK_INSTALL:-${BAKED_LEFTHOOK_INSTALL:-tr
 DIRENV_ALLOW="${PROJECT_SETUP_DIRENV_ALLOW:-${BAKED_DIRENV_ALLOW:-true}}"
 
 # Command hooks — override in tests to avoid requiring real tools on PATH.
-_PNPM_CMD="${PNPM_CMD:-pnpm}"
+# NODE_PKG_MANAGER_CMD: overrides the auto-detected package manager for all node subdirs.
 _UV_CMD="${UV_CMD:-uv}"
 _LEFTHOOK_CMD="${LEFTHOOK_CMD:-lefthook}"
 _DIRENV_CMD="${DIRENV_CMD:-direnv}"
@@ -34,24 +34,54 @@ _DIRENV_CMD="${DIRENV_CMD:-direnv}"
 
 log() { echo "project-setup: $*"; }
 
+# detect_node_pkg_manager <dir> <workspace>
+# Reads the "packageManager" field from package.json in <dir> or any ancestor
+# up to (and including) <workspace>.  Returns just the manager name (before @).
+# Falls back to "npm" when no packageManager field is found anywhere.
+detect_node_pkg_manager() {
+	local dir="$1"
+	local workspace="$2"
+	local current="$dir"
+	local pm=""
+
+	while true; do
+		# Guard: stay within workspace tree
+		case "$current" in
+		"$workspace" | "$workspace"/*) ;;
+		*) break ;;
+		esac
+		if [ -f "${current}/package.json" ]; then
+			pm=$(grep -o '"packageManager"[[:space:]]*:[[:space:]]*"[^"@]*' "${current}/package.json" |
+				sed 's/.*"packageManager"[[:space:]]*:[[:space:]]*"//' |
+				head -1)
+		fi
+		[ -n "$pm" ] && break
+		[ "$current" = "$workspace" ] && break
+		current="$(dirname "$current")"
+	done
+
+	echo "${pm:-npm}"
+}
+
 # ── node subdirectories ────────────────────────────────────────────────────────
 
 if [ -n "$NODE_SUBDIRS" ]; then
 	for subdir in $NODE_SUBDIRS; do
 		dir="${WORKSPACE}/${subdir}"
 		if [ ! -f "${dir}/package.json" ]; then
-			log "WARNING: no package.json in ${subdir}; skipping pnpm install."
+			log "WARNING: no package.json in ${subdir}; skipping install."
 			continue
 		fi
-		if ! command -v "$_PNPM_CMD" >/dev/null 2>&1; then
-			log "WARNING: pnpm not found; skipping pnpm install in ${subdir}."
+		_pm="${NODE_PKG_MANAGER_CMD:-$(detect_node_pkg_manager "$dir" "$WORKSPACE")}"
+		if ! command -v "$_pm" >/dev/null 2>&1; then
+			log "WARNING: ${_pm} not found; skipping install in ${subdir}."
 			continue
 		fi
-		log "running pnpm install in ${subdir}..."
-		if (cd "$dir" && "$_PNPM_CMD" install); then
-			log "pnpm install complete in ${subdir}."
+		log "running ${_pm} install in ${subdir}..."
+		if (cd "$dir" && "$_pm" install); then
+			log "${_pm} install complete in ${subdir}."
 		else
-			log "WARNING: pnpm install failed in ${subdir}; continuing."
+			log "WARNING: ${_pm} install failed in ${subdir}; continuing."
 		fi
 	done
 fi
