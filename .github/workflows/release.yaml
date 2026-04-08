@@ -118,5 +118,5 @@ jobs:
             gh pr create \
               --title "docs: automated documentation update" \
               --body "Auto-generated feature documentation from release workflow." \
-              || echo "::warning::Could not create documentation PR. Enable 'Allow GitHub Actions to create and approve pull requests' in repository settings."
+              || echo "::warning::Could not create documentation PR. Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General > Workflow permissions."
           fi
