@@ -9,7 +9,6 @@ AUTOSUGGESTSTYLE="${AUTOSUGGESTSTYLE:-}"
 AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
-WORKSPACE_FOLDER="${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}"
 
 # Returns the git clone URL for a known external plugin, or empty string for built-in plugins.
 get_external_plugin_url() {
@@ -96,15 +95,19 @@ write_zshrc() {
 			printf '%s\n' "${EXTRARCSNIPPETS}"
 		fi
 		if [ -n "${EXTRARCFILE}" ]; then
-			local rc_file_path
-			if [ -n "${WORKSPACE_FOLDER}" ]; then
-				rc_file_path="${WORKSPACE_FOLDER}/${EXTRARCFILE}"
-			else
-				rc_file_path="${EXTRARCFILE}"
-			fi
-			if [ -f "${rc_file_path}" ]; then
-				cat "${rc_file_path}"
-			fi
+			case "${EXTRARCFILE}" in
+			*..*) echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains '..'; ignoring." >&2 ;;
+			/*)
+				# Absolute path — source at runtime with existence guard
+				printf '[ -f "%s" ] && source "%s"\n' "${EXTRARCFILE}" "${EXTRARCFILE}"
+				;;
+			*)
+				# Workspace-relative path — resolved at runtime when the workspace is mounted
+				printf 'if [ -n "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}" ] && [ -f "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s" ]; then\n' "${EXTRARCFILE}"
+				printf '\tsource "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s"\n' "${EXTRARCFILE}"
+				printf 'fi\n'
+				;;
+			esac
 		fi
 	} >"${zshrc}"
 
