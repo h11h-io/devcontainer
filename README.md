@@ -14,6 +14,7 @@ Reusable [devcontainer features](https://containers.dev/features) published to G
 | [Project Setup](#project-setup) | `ghcr.io/h11h-io/devcontainer/project-setup:1` | Runs project setup tasks on container creation (dependency installs, env files, lefthook, direnv) |
 | [Supabase CLI](#supabase-cli) | `ghcr.io/h11h-io/devcontainer/supabase-cli:1` | Installs the Supabase CLI with Docker image pre-pull |
 | [Coder CLI](#coder) | `ghcr.io/h11h-io/devcontainer/coder:1` | Installs the [Coder](https://coder.com) CLI |
+| [Userspace Package Homes](#userspace-package-homes) | `ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1` | Configures writable userspace directories for global package installs (pnpm, pipx, npm) |
 
 ---
 
@@ -256,6 +257,77 @@ Installs the [Coder CLI](https://coder.com) for interacting with Coder workspace
 
 ---
 
+## Userspace Package Homes
+
+Configures writable userspace directories for global package installs so tools like [pnpm](https://pnpm.io), [pipx](https://pipx.pypa.io), and [npm](https://docs.npmjs.com/) route global installs to stable, writable locations under the user's home directory instead of immutable system paths (e.g., `/usr/local`).
+
+At build time the feature creates the target directories and sets ownership to `$_REMOTE_USER`. It then injects an idempotent, marker-delimited configuration block into both `~/.bashrc` and `~/.zshrc`. The block exports the relevant environment variables and adds their directories to `$PATH` with per-directory guards to prevent duplicates.
+
+### Usage
+
+```jsonc
+// devcontainer.json
+{
+  "features": {
+    "ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1": {}
+  }
+}
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `configurePnpm` | `boolean` | `true` | Set `PNPM_HOME` to `~/.local/share/pnpm` and add it to `PATH` |
+| `configurePipx` | `boolean` | `true` | Set `PIPX_BIN_DIR` to `~/.local/bin` and add it to `PATH` |
+| `configureNpm` | `boolean` | `false` | Set `NPM_CONFIG_PREFIX` to `~/.npm-global` and add its `bin/` directory to `PATH` |
+
+### How it works
+
+- **Build time (`install.sh`)**:
+  1. Creates target directories (`~/.local/share/pnpm`, `~/.local/bin`, `~/.npm-global`) based on selected options.
+  2. Sets directory ownership to `$_REMOTE_USER` (only the directories this feature creates — unrelated content under `~/.local` is left untouched).
+  3. Injects a managed config block into both `~/.bashrc` and `~/.zshrc`, delimited by marker lines (`# >> userspace-pkg-homes config >>` / `# << userspace-pkg-homes config <<`).
+  4. The injection is **idempotent** — re-running replaces any existing block rather than duplicating it.
+
+### Generated shell config (all options enabled)
+
+```bash
+# >> userspace-pkg-homes config >>
+export PNPM_HOME="${HOME}/.local/share/pnpm"
+export PIPX_BIN_DIR="${HOME}/.local/bin"
+export NPM_CONFIG_PREFIX="${HOME}/.npm-global"
+case ":$PATH:" in
+  *":${PNPM_HOME}:"*) ;;
+  *) export PATH="${PNPM_HOME}:$PATH" ;;
+esac
+case ":$PATH:" in
+  *":${PIPX_BIN_DIR}:"*) ;;
+  *) export PATH="${PIPX_BIN_DIR}:$PATH" ;;
+esac
+case ":$PATH:" in
+  *":${NPM_CONFIG_PREFIX}/bin:"*) ;;
+  *) export PATH="${NPM_CONFIG_PREFIX}/bin:$PATH" ;;
+esac
+# << userspace-pkg-homes config <<
+```
+
+### Enabling npm global installs
+
+npm global installs are **disabled by default** because most projects use pnpm or project-local installs. Pass `configureNpm` to enable:
+
+```jsonc
+{
+  "features": {
+    "ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1": {
+      "configureNpm": true
+    }
+  }
+}
+```
+
+---
+
 ## Combining Features
 
 Here's an example `devcontainer.json` that uses all features together:
@@ -282,7 +354,8 @@ Here's an example `devcontainer.json` that uses all features together:
     "ghcr.io/h11h-io/devcontainer/supabase-cli:1": {
       "version": "2.84.2"
     },
-    "ghcr.io/h11h-io/devcontainer/coder:1": {}
+    "ghcr.io/h11h-io/devcontainer/coder:1": {},
+    "ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1": {}
   }
 }
 ```
@@ -311,6 +384,7 @@ bash test/unit/test_oh_my_zsh_install.sh
 bash test/unit/test_project_setup.sh
 bash test/unit/test_supabase_cli_install.sh
 bash test/unit/test_coder_install.sh
+bash test/unit/test_userspace_pkg_homes.sh
 ```
 
 ### Linting

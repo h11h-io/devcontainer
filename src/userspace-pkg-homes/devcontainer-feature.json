@@ -1,0 +1,24 @@
+{
+  "id": "userspace-pkg-homes",
+  "version": "1.0.0",
+  "name": "Userspace Package Homes",
+  "description": "Configures writable userspace directories for global package installs (pnpm, pipx, npm). Ensures global installs default to stable, writable locations under the user's home directory.",
+  "options": {
+    "configurePnpm": {
+      "type": "boolean",
+      "default": true,
+      "description": "Configure PNPM_HOME to ~/.local/share/pnpm and add it to PATH."
+    },
+    "configurePipx": {
+      "type": "boolean",
+      "default": true,
+      "description": "Configure PIPX_BIN_DIR to ~/.local/bin and add it to PATH."
+    },
+    "configureNpm": {
+      "type": "boolean",
+      "default": false,
+      "description": "Configure NPM_CONFIG_PREFIX to ~/.npm-global and add its bin directory to PATH."
+    }
+  },
+  "installsAfter": []
+}
