@@ -3,6 +3,9 @@ set -euo pipefail
 
 PLUGINS="${PLUGINS:-git sudo z history colored-man-pages zsh-autosuggestions zsh-syntax-highlighting pnpm}"
 THEME="${THEME:-robbyrussell}"
+EXTRARCSNIPPETS="${EXTRARCSNIPPETS:-}"
+AUTOSUGGESTSTYLE="${AUTOSUGGESTSTYLE:-}"
+AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
 
@@ -39,8 +42,11 @@ install_omz() {
 		return 0
 	fi
 	echo "oh-my-zsh: installing to ${omz_dir}..."
-	ZSH="${omz_dir}" HOME="${REMOTE_USER_HOME}" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-		sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+	if ! curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh |
+		ZSH="${omz_dir}" HOME="${REMOTE_USER_HOME}" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+			sh -s --; then
+		echo "oh-my-zsh: WARNING: installation failed (network issue?). .zshrc will be written but OMZ won't be available." >&2
+	fi
 }
 
 install_external_plugins() {
@@ -52,7 +58,9 @@ install_external_plugins() {
 		[ -z "${url}" ] && continue
 		if [ ! -d "${plugins_dir}/${plugin}" ]; then
 			echo "oh-my-zsh: installing plugin '${plugin}'..."
-			git clone --depth=1 "${url}" "${plugins_dir}/${plugin}"
+			if ! git clone --depth=1 "${url}" "${plugins_dir}/${plugin}"; then
+				echo "oh-my-zsh: WARNING: plugin '${plugin}' clone failed; skipping." >&2
+			fi
 		else
 			echo "oh-my-zsh: plugin '${plugin}' already present, skipping."
 		fi
@@ -76,6 +84,15 @@ write_zshrc() {
 		printf 'ZSH_THEME="%s"\n' "${THEME}"
 		printf 'plugins=(%s)\n' "${plugin_list}"
 		printf 'source "$ZSH/oh-my-zsh.sh"\n'
+		if [ -n "${AUTOSUGGESTSTYLE}" ]; then
+			printf 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="%s"\n' "${AUTOSUGGESTSTYLE}"
+		fi
+		if [ -n "${AUTOSUGGESTSTRATEGY}" ]; then
+			printf 'ZSH_AUTOSUGGEST_STRATEGY=(%s)\n' "${AUTOSUGGESTSTRATEGY}"
+		fi
+		if [ -n "${EXTRARCSNIPPETS}" ]; then
+			printf '%s\n' "${EXTRARCSNIPPETS}"
+		fi
 	} >"${zshrc}"
 
 	[ "${REMOTE_USER}" != "root" ] && chown "${REMOTE_USER}:" "${zshrc}" 2>/dev/null || true

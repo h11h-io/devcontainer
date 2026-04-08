@@ -13,6 +13,21 @@
       "type": "string",
       "default": "robbyrussell",
       "description": "Oh My Zsh theme name (e.g. 'robbyrussell', 'agnoster', 'clean')."
+    },
+    "extraRcSnippets": {
+      "type": "string",
+      "default": "",
+      "description": "Additional shell code appended after 'source oh-my-zsh.sh' in the generated .zshrc. Use this to inject project-specific customizations (NVM sourcing, direnv hooks, autosuggest config, etc.) without a separate post-create script."
+    },
+    "autosuggestStyle": {
+      "type": "string",
+      "default": "",
+      "description": "Sets ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE if non-empty (e.g. 'fg=60'). Only takes effect when the zsh-autosuggestions plugin is active."
+    },
+    "autosuggestStrategy": {
+      "type": "string",
+      "default": "",
+      "description": "Sets ZSH_AUTOSUGGEST_STRATEGY if non-empty (e.g. 'history completion'). Only takes effect when the zsh-autosuggestions plugin is active."
     }
   },
   "installsAfter": []

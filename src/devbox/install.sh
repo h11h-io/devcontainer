@@ -33,3 +33,10 @@ install -o root -g root -m 0755 \
 	/usr/local/bin/devbox-on-create
 
 echo "devbox: onCreate helper installed at /usr/local/bin/devbox-on-create."
+
+# Install the postStart helper.
+install -o root -g root -m 0755 \
+	"${FEATURE_DIR}/devbox-post-start.sh" \
+	/usr/local/bin/devbox-post-start
+
+echo "devbox: postStart helper installed at /usr/local/bin/devbox-post-start."

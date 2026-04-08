@@ -294,4 +294,223 @@ BLOCK_COUNT=$(grep -c "BEGIN devbox-project-path" "${TEST_HOME}/.zshrc" 2>/dev/n
 	fail "on-create: PATH export is idempotent (block not duplicated)" \
 		"found ${BLOCK_COUNT} BEGIN markers in .zshrc"
 
+# 13. Global devbox profile path is exported to .zshrc when EXPORTGLOBALPROFILE=true
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	EXPORTGLOBALPROFILE="true" bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-global-path" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: global devbox profile PATH block added to .zshrc" ||
+	fail "on-create: global devbox profile PATH block added to .zshrc" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+grep -q "devbox-global-path" "${TEST_HOME}/.bashrc" &&
+	pass "on-create: global devbox profile PATH block added to .bashrc" ||
+	fail "on-create: global devbox profile PATH block added to .bashrc" \
+		".bashrc: $(cat "${TEST_HOME}/.bashrc" 2>/dev/null)"
+
+# 14. Global devbox profile path contains the expected ~/.local/share/devbox path
+grep -q ".local/share/devbox/global" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: .zshrc global PATH references ~/.local/share/devbox/global" ||
+	fail "on-create: .zshrc global PATH references ~/.local/share/devbox/global" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 15. Global devbox profile export is skipped when EXPORTGLOBALPROFILE=false
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	EXPORTGLOBALPROFILE="false" bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-global-path" "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "on-create: global devbox path must not be added when EXPORTGLOBALPROFILE=false" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "on-create: global devbox profile export skipped when EXPORTGLOBALPROFILE=false"
+
+# 16. Nix-daemon sourcing is added to .zshrc when the daemon profile file exists
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+FAKE_NIX_PROFILE=$(new_tmp)
+FAKE_NIX_DAEMON="${FAKE_NIX_PROFILE}/nix-daemon.sh"
+touch "${FAKE_NIX_DAEMON}"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+# Patch the script to use a fake nix-daemon path via a wrapper approach:
+# We can't inject the path easily, so we create a temporary patched copy.
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh|${FAKE_NIX_DAEMON}|g" \
+	"${ONCREATE_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: nix-daemon sourcing block added to .zshrc when profile exists" ||
+	fail "on-create: nix-daemon sourcing block added to .zshrc when profile exists" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 17. Nix-daemon sourcing is NOT added when the daemon profile file is absent
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "on-create: nix-daemon block must not be added when profile absent" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "on-create: nix-daemon sourcing skipped when profile file absent"
+
+summary
+
+# ── devbox-post-start.sh unit tests ───────────────────────────────────────────
+POSTSTART_SCRIPT="${REPO_ROOT}/src/devbox/devbox-post-start.sh"
+
+echo ""
+echo "=== devbox-post-start.sh unit tests ==="
+echo ""
+
+# 18. post-start exits 0 and skips when nix-daemon binary is absent
+TEST_BIN=$(new_tmp)
+MISSING_DAEMON_ROOT=$(new_tmp)
+PATCHED_POSTSTART=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${MISSING_DAEMON_ROOT}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_POSTSTART}"
+chmod +x "${PATCHED_POSTSTART}"
+# PATH has no nix-daemon binary, and the script's absolute nix-daemon path is patched to a nonexistent location
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" \
+	bash "${PATCHED_POSTSTART}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_POSTSTART}"
+[ "${rc}" -eq 0 ] &&
+	pass "post-start: exits 0 when nix-daemon binary absent" ||
+	fail "post-start: exits 0 when nix-daemon binary absent" "exit code: ${rc}"
+
+# 19. post-start starts nix-daemon when binary is present and not running
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+# Fake nix-daemon binary that records invocation and exits immediately
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep that always says not running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports root (uid=0) so the root check passes
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "0"
+EOF
+chmod +x "${TEST_BIN}/id"
+# Patch the binary path to point at our fake binary
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" &&
+	pass "post-start: starts nix-daemon when binary present and not running" ||
+	fail "post-start: starts nix-daemon when binary present and not running" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)"
+rm -f "${DAEMON_LOG}"
+
+# 20. post-start skips starting nix-daemon when it is already running
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep that reports nix-daemon as already running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports root (uid=0) so the root check passes
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "0"
+EOF
+chmod +x "${TEST_BIN}/id"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "post-start: must not start nix-daemon when already running" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "post-start: skips nix-daemon start when already running"
+rm -f "${DAEMON_LOG}"
+
+# 21. post-start exits 0 and skips when running as non-root
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports non-root (uid=1000)
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "1000"
+EOF
+chmod +x "${TEST_BIN}/id"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_SCRIPT}"
+[ "${rc}" -eq 0 ] &&
+	pass "post-start: exits 0 when running as non-root" ||
+	fail "post-start: exits 0 when running as non-root" "exit code: ${rc}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "post-start: must not start nix-daemon when non-root" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "post-start: skips nix-daemon start when non-root"
+rm -f "${DAEMON_LOG}"
+
+# 22. install.sh installs devbox-post-start helper
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+test -x "${TEST_BIN}/devbox-post-start" &&
+	pass "install: devbox-post-start helper installed" ||
+	fail "install: devbox-post-start helper installed" "not found in ${TEST_BIN}"
+
 summary
