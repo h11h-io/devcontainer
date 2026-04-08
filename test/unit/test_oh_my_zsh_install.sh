@@ -278,8 +278,8 @@ REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="ro
 	EXTRARCSNIPPETS='export SNIPPET_VAR=from_snippet' EXTRARCFILE="extras.sh" \
 	write_zshrc
 ZSHRC_CONTENT=$(cat "${TEST_HOME}/.zshrc")
-SNIPPET_LINE=$(echo "$ZSHRC_CONTENT" | grep -n 'SNIPPET_VAR' | cut -d: -f1 || true)
-FILE_LINE=$(echo "$ZSHRC_CONTENT" | grep -n 'extras.sh' | head -1 | cut -d: -f1 || true)
+SNIPPET_LINE=$(printf '%s\n' "$ZSHRC_CONTENT" | grep -n 'SNIPPET_VAR' | cut -d: -f1 || true)
+FILE_LINE=$(printf '%s\n' "$ZSHRC_CONTENT" | grep -n 'extras.sh' | head -1 | cut -d: -f1 || true)
 if [ -n "$SNIPPET_LINE" ] && [ -n "$FILE_LINE" ] && [ "$SNIPPET_LINE" -lt "$FILE_LINE" ]; then
 	pass "write_zshrc: appends snippets before file source line when both provided"
 else
@@ -306,5 +306,15 @@ LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 [ "${LINE_COUNT}" -eq 5 ] &&
 	pass "write_zshrc: rejects extraRcFile with path traversal (..)" ||
 	fail "write_zshrc: rejects extraRcFile with path traversal (..)" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 26. write_zshrc rejects extraRcFile with unsafe characters (e.g. quotes)
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" EXTRARCFILE='foo"bar.sh' \
+	write_zshrc 2>/dev/null
+LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
+[ "${LINE_COUNT}" -eq 5 ] &&
+	pass "write_zshrc: rejects extraRcFile with unsafe characters" ||
+	fail "write_zshrc: rejects extraRcFile with unsafe characters" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
 summary

@@ -97,6 +97,9 @@ write_zshrc() {
 		if [ -n "${EXTRARCFILE}" ]; then
 			case "${EXTRARCFILE}" in
 			*..*) echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains '..'; ignoring." >&2 ;;
+			*[!-a-zA-Z0-9_./]*)
+				echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains unsafe characters; ignoring." >&2
+				;;
 			/*)
 				# Absolute path — source at runtime with existence guard
 				printf '[ -f "%s" ] && source "%s"\n' "${EXTRARCFILE}" "${EXTRARCFILE}"
