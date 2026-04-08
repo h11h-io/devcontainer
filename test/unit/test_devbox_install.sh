@@ -389,9 +389,15 @@ echo ""
 
 # 18. post-start exits 0 and skips when nix-daemon binary is absent
 TEST_BIN=$(new_tmp)
-# PATH has no nix-daemon binary
+MISSING_DAEMON_ROOT=$(new_tmp)
+PATCHED_POSTSTART=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${MISSING_DAEMON_ROOT}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_POSTSTART}"
+chmod +x "${PATCHED_POSTSTART}"
+# PATH has no nix-daemon binary, and the script's absolute nix-daemon path is patched to a nonexistent location
 HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" \
-	bash "${POSTSTART_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+	bash "${PATCHED_POSTSTART}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_POSTSTART}"
 [ "${rc}" -eq 0 ] &&
 	pass "post-start: exits 0 when nix-daemon binary absent" ||
 	fail "post-start: exits 0 when nix-daemon binary absent" "exit code: ${rc}"
@@ -412,6 +418,12 @@ cat >"${TEST_BIN}/pgrep" <<'EOF'
 exit 1
 EOF
 chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports root (uid=0) so the root check passes
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "0"
+EOF
+chmod +x "${TEST_BIN}/id"
 # Patch the binary path to point at our fake binary
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
@@ -440,6 +452,12 @@ cat >"${TEST_BIN}/pgrep" <<'EOF'
 exit 0
 EOF
 chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports root (uid=0) so the root check passes
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "0"
+EOF
+chmod +x "${TEST_BIN}/id"
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
 	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
@@ -452,7 +470,42 @@ grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
 	pass "post-start: skips nix-daemon start when already running"
 rm -f "${DAEMON_LOG}"
 
-# 21. install.sh installs devbox-post-start helper
+# 21. post-start exits 0 and skips when running as non-root
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports non-root (uid=1000)
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "1000"
+EOF
+chmod +x "${TEST_BIN}/id"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_SCRIPT}"
+[ "${rc}" -eq 0 ] &&
+	pass "post-start: exits 0 when running as non-root" ||
+	fail "post-start: exits 0 when running as non-root" "exit code: ${rc}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "post-start: must not start nix-daemon when non-root" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "post-start: skips nix-daemon start when non-root"
+rm -f "${DAEMON_LOG}"
+
+# 22. install.sh installs devbox-post-start helper
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1

@@ -42,8 +42,9 @@ install_omz() {
 		return 0
 	fi
 	echo "oh-my-zsh: installing to ${omz_dir}..."
-	if ! ZSH="${omz_dir}" HOME="${REMOTE_USER_HOME}" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-		sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"; then
+	if ! curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh |
+		ZSH="${omz_dir}" HOME="${REMOTE_USER_HOME}" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+			sh -s --; then
 		echo "oh-my-zsh: WARNING: installation failed (network issue?). .zshrc will be written but OMZ won't be available." >&2
 	fi
 }

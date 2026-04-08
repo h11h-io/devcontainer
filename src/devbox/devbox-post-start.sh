@@ -18,6 +18,12 @@ if [ ! -x "${NIX_DAEMON_BIN}" ]; then
 	exit 0
 fi
 
+# nix-daemon in multi-user Nix must be started as root
+if [ "$(id -u)" -ne 0 ]; then
+	echo "devbox-post-start: nix-daemon requires root; running as non-root (uid=$(id -u)), skipping."
+	exit 0
+fi
+
 # Check if nix-daemon is already running
 if pgrep -x nix-daemon >/dev/null 2>&1; then
 	echo "devbox-post-start: nix-daemon already running; skipping."

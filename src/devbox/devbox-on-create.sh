@@ -85,7 +85,7 @@ fi
 NIX_DAEMON_PROFILE="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 
 if [ -f "${NIX_DAEMON_PROFILE}" ]; then
-	NIX_INIT=". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true"
+	NIX_INIT=". ${NIX_DAEMON_PROFILE} 2>/dev/null || true"
 	for rc in "${HOME}/.zshrc" "${HOME}/.bashrc"; do
 		add_to_shell "devbox-nix-daemon" "$NIX_INIT" "$rc"
 	done
