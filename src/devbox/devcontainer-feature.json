@@ -8,6 +8,11 @@
       "type": "string",
       "default": "latest",
       "description": "Version of Devbox to install. Use 'latest' for the most recent release."
+    },
+    "exportGlobalProfile": {
+      "type": "boolean",
+      "default": true,
+      "description": "When true (default), also exports the global devbox Nix profile (~/.local/share/devbox/global/…/bin) into login shells so globally-installed devbox packages are available everywhere."
     }
   },
   "installsAfter": [],

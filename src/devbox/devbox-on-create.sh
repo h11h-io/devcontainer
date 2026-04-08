@@ -5,12 +5,17 @@
 # 2. Exports the project's devbox Nix profile into login shells (.zshrc and
 #    .bashrc) so commands like `direnv` are available everywhere in the
 #    container without requiring `devbox run` or a `devbox shell` wrapper.
+# 3. Optionally exports the global devbox Nix profile (controlled by the
+#    exportGlobalProfile feature option, default: true).
+# 4. Sources the nix-daemon profile in login shells when present (needed for
+#    multi-user Nix installations in devcontainers where systemd doesn't run).
 #
 # The workspace root is taken from $containerWorkspaceFolder (set by the
 # devcontainer CLI) or falls back to the current working directory.
 set -euo pipefail
 
 WORKSPACE="${containerWorkspaceFolder:-$PWD}"
+EXPORTGLOBALPROFILE="${EXPORTGLOBALPROFILE:-true}"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,3 +60,34 @@ for rc in "${HOME}/.zshrc" "${HOME}/.bashrc"; do
 done
 
 echo "devbox-on-create: devbox profile path exported to shell configs."
+
+# ── export global devbox profile into login shells ───────────────────────────
+
+if [ "${EXPORTGLOBALPROFILE}" = "true" ]; then
+	DEVBOX_GLOBAL_PROFILE="${HOME}/.local/share/devbox/global/default/.devbox/nix/profile/default/bin"
+
+	GLOBAL_PATH_INIT="case \":\$PATH:\" in"
+	GLOBAL_PATH_INIT="${GLOBAL_PATH_INIT} *\":${DEVBOX_GLOBAL_PROFILE}:\"*) ;;"
+	GLOBAL_PATH_INIT="${GLOBAL_PATH_INIT} *) export PATH=\"${DEVBOX_GLOBAL_PROFILE}:\$PATH\" ;;"
+	GLOBAL_PATH_INIT="${GLOBAL_PATH_INIT} esac"
+
+	for rc in "${HOME}/.zshrc" "${HOME}/.bashrc"; do
+		add_to_shell "devbox-global-path" "$GLOBAL_PATH_INIT" "$rc"
+	done
+
+	echo "devbox-on-create: global devbox profile path exported to shell configs."
+fi
+
+# ── source nix-daemon profile in login shells ────────────────────────────────
+# Needed for multi-user Nix installations in devcontainers where systemd
+# doesn't run and nix-daemon isn't started automatically.
+
+NIX_DAEMON_PROFILE="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+
+if [ -f "${NIX_DAEMON_PROFILE}" ]; then
+	NIX_INIT=". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true"
+	for rc in "${HOME}/.zshrc" "${HOME}/.bashrc"; do
+		add_to_shell "devbox-nix-daemon" "$NIX_INIT" "$rc"
+	done
+	echo "devbox-on-create: nix-daemon profile sourcing added to shell configs."
+fi

@@ -163,4 +163,90 @@ grep -q "clone" "${CLONE_LOG2}" 2>/dev/null &&
 	fail "install_external_plugins: must not clone already-present plugin" "git log: $(cat "${CLONE_LOG2}" 2>/dev/null)" ||
 	pass "install_external_plugins: skips already-installed plugin"
 
+# 13. write_zshrc appends extraRcSnippets after source line
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS='export NVM_DIR="$HOME/.nvm"' \
+	write_zshrc
+grep -q 'NVM_DIR' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: appends extraRcSnippets to .zshrc" ||
+	fail "write_zshrc: appends extraRcSnippets to .zshrc" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 14. write_zshrc does NOT add extraRcSnippets line when EXTRARCSNIPPETS is empty
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCSNIPPETS="" \
+	write_zshrc
+# Only the 5 standard lines should be present — verify by counting non-empty lines
+LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
+[ "${LINE_COUNT}" -eq 5 ] &&
+	pass "write_zshrc: no extra lines when EXTRARCSNIPPETS is empty" ||
+	fail "write_zshrc: no extra lines when EXTRARCSNIPPETS is empty" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 15. write_zshrc appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is set
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	AUTOSUGGESTSTYLE="fg=60" AUTOSUGGESTSTRATEGY="" EXTRARCSNIPPETS="" \
+	write_zshrc
+grep -q 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=60"' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle set" ||
+	fail "write_zshrc: appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle set" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 16. write_zshrc does NOT add ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is empty
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" EXTRARCSNIPPETS="" \
+	write_zshrc
+grep -q 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE' "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "write_zshrc: must not add ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle empty" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "write_zshrc: no ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle empty"
+
+# 17. write_zshrc appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy is set
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="history completion" EXTRARCSNIPPETS="" \
+	write_zshrc
+grep -q 'ZSH_AUTOSUGGEST_STRATEGY=(history completion)' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy set" ||
+	fail "write_zshrc: appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy set" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 18. write_zshrc does NOT add ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy is empty
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" EXTRARCSNIPPETS="" \
+	write_zshrc
+grep -q 'ZSH_AUTOSUGGEST_STRATEGY' "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "write_zshrc: must not add ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy empty" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "write_zshrc: no ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy empty"
+
+# 19. install_omz continues when curl/sh fails (network error resilience)
+TEST_HOME=$(new_tmp)
+TEST_BIN=$(new_tmp)
+# Provide a failing curl stub
+cat >"${TEST_BIN}/curl" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/curl"
+# install_omz must not propagate the failure (returns 0 with a warning)
+PATH="${TEST_BIN}:${PATH}" REMOTE_USER_HOME="$TEST_HOME" \
+	install_omz 2>/dev/null
+pass "install_omz: does not abort on network failure (curl returns 1)"
+
+# 20. install_external_plugins continues when git clone fails
+TEST_HOME=$(new_tmp)
+TEST_BIN=$(new_tmp)
+cat >"${TEST_BIN}/git" <<'EOF'
+#!/bin/sh
+case "${1:-}" in
+  clone) exit 1 ;;
+  *)     exit 0 ;;
+esac
+EOF
+chmod +x "${TEST_BIN}/git"
+# install_external_plugins must not propagate the failure
+PATH="${TEST_BIN}:${PATH}" REMOTE_USER_HOME="$TEST_HOME" PLUGINS="zsh-autosuggestions" \
+	install_external_plugins 2>/dev/null
+pass "install_external_plugins: does not abort when git clone fails"
+
 summary

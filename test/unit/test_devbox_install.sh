@@ -294,4 +294,88 @@ BLOCK_COUNT=$(grep -c "BEGIN devbox-project-path" "${TEST_HOME}/.zshrc" 2>/dev/n
 	fail "on-create: PATH export is idempotent (block not duplicated)" \
 		"found ${BLOCK_COUNT} BEGIN markers in .zshrc"
 
+# 13. Global devbox profile path is exported to .zshrc when EXPORTGLOBALPROFILE=true
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	EXPORTGLOBALPROFILE="true" bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-global-path" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: global devbox profile PATH block added to .zshrc" ||
+	fail "on-create: global devbox profile PATH block added to .zshrc" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+grep -q "devbox-global-path" "${TEST_HOME}/.bashrc" &&
+	pass "on-create: global devbox profile PATH block added to .bashrc" ||
+	fail "on-create: global devbox profile PATH block added to .bashrc" \
+		".bashrc: $(cat "${TEST_HOME}/.bashrc" 2>/dev/null)"
+
+# 14. Global devbox profile path contains the expected ~/.local/share/devbox path
+grep -q ".local/share/devbox/global" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: .zshrc global PATH references ~/.local/share/devbox/global" ||
+	fail "on-create: .zshrc global PATH references ~/.local/share/devbox/global" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 15. Global devbox profile export is skipped when EXPORTGLOBALPROFILE=false
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	EXPORTGLOBALPROFILE="false" bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-global-path" "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "on-create: global devbox path must not be added when EXPORTGLOBALPROFILE=false" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "on-create: global devbox profile export skipped when EXPORTGLOBALPROFILE=false"
+
+# 16. Nix-daemon sourcing is added to .zshrc when the daemon profile file exists
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+FAKE_NIX_PROFILE=$(new_tmp)
+FAKE_NIX_DAEMON="${FAKE_NIX_PROFILE}/nix-daemon.sh"
+touch "${FAKE_NIX_DAEMON}"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+# Patch the script to use a fake nix-daemon path via a wrapper approach:
+# We can't inject the path easily, so we create a temporary patched copy.
+PATCHED_SCRIPT=$(mktemp /tmp/devbox_on_create_patched.XXXXXX.sh)
+sed "s|/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh|${FAKE_NIX_DAEMON}|g" \
+	"${ONCREATE_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" &&
+	pass "on-create: nix-daemon sourcing block added to .zshrc when profile exists" ||
+	fail "on-create: nix-daemon sourcing block added to .zshrc when profile exists" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 17. Nix-daemon sourcing is NOT added when the daemon profile file is absent
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "on-create: nix-daemon block must not be added when profile absent" \
+		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "on-create: nix-daemon sourcing skipped when profile file absent"
+
 summary
