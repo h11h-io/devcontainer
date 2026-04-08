@@ -4,10 +4,12 @@ set -euo pipefail
 PLUGINS="${PLUGINS:-git sudo z history colored-man-pages zsh-autosuggestions zsh-syntax-highlighting pnpm}"
 THEME="${THEME:-robbyrussell}"
 EXTRARCSNIPPETS="${EXTRARCSNIPPETS:-}"
+EXTRARCFILE="${EXTRARCFILE:-}"
 AUTOSUGGESTSTYLE="${AUTOSUGGESTSTYLE:-}"
 AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
+WORKSPACE_FOLDER="${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}"
 
 # Returns the git clone URL for a known external plugin, or empty string for built-in plugins.
 get_external_plugin_url() {
@@ -92,6 +94,17 @@ write_zshrc() {
 		fi
 		if [ -n "${EXTRARCSNIPPETS}" ]; then
 			printf '%s\n' "${EXTRARCSNIPPETS}"
+		fi
+		if [ -n "${EXTRARCFILE}" ]; then
+			local rc_file_path
+			if [ -n "${WORKSPACE_FOLDER}" ]; then
+				rc_file_path="${WORKSPACE_FOLDER}/${EXTRARCFILE}"
+			else
+				rc_file_path="${EXTRARCFILE}"
+			fi
+			if [ -f "${rc_file_path}" ]; then
+				cat "${rc_file_path}"
+			fi
 		fi
 	} >"${zshrc}"
 
