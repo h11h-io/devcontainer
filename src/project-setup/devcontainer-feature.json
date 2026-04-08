@@ -30,8 +30,6 @@
       "description": "Run 'direnv allow .' in the workspace root during container creation. Requires direnv to be available."
     }
   },
-  "installsAfter": [
-    "ghcr.io/h11h-io/devcontainer/devbox:1"
-  ],
+  "installsAfter": [],
   "postCreateCommand": "project-setup-post-create"
 }
