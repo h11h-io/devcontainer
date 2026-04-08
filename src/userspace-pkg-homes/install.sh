@@ -19,19 +19,19 @@ build_config_block() {
 	if [ "${CONFIGURE_PNPM}" = "true" ]; then
 		exports="${exports}export PNPM_HOME=\"\${HOME}/.local/share/pnpm\"
 "
-		path_dirs="${path_dirs}\${PNPM_HOME}:"
+		path_dirs="${path_dirs} \${PNPM_HOME}"
 	fi
 
 	if [ "${CONFIGURE_PIPX}" = "true" ]; then
 		exports="${exports}export PIPX_BIN_DIR=\"\${HOME}/.local/bin\"
 "
-		path_dirs="${path_dirs}\${PIPX_BIN_DIR}:"
+		path_dirs="${path_dirs} \${PIPX_BIN_DIR}"
 	fi
 
 	if [ "${CONFIGURE_NPM}" = "true" ]; then
 		exports="${exports}export NPM_CONFIG_PREFIX=\"\${HOME}/.npm-global\"
 "
-		path_dirs="${path_dirs}\${NPM_CONFIG_PREFIX}/bin:"
+		path_dirs="${path_dirs} \${NPM_CONFIG_PREFIX}/bin"
 	fi
 
 	# Nothing to configure
@@ -41,11 +41,14 @@ build_config_block() {
 
 	printf '%s\n' "${MARKER_BEGIN}"
 	printf '%s' "${exports}"
-	# Idempotent PATH guard — only prepend if not already present
-	printf 'case ":$PATH:" in\n'
-	printf '  *":%s"*) ;;\n' "${path_dirs%:}"
-	printf '  *) export PATH="%s$PATH" ;;\n' "${path_dirs}"
-	printf 'esac\n'
+	# Idempotent PATH guard — check each directory individually
+	local dir
+	for dir in ${path_dirs}; do
+		printf 'case ":$PATH:" in\n'
+		printf '  *":%s:"*) ;;\n' "${dir}"
+		printf '  *) export PATH="%s:$PATH" ;;\n' "${dir}"
+		printf 'esac\n'
+	done
 	printf '%s\n' "${MARKER_END}"
 }
 
