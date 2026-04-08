@@ -11,7 +11,8 @@
     }
   },
   "installsAfter": [
-    "ghcr.io/devcontainers/features/github-cli:1"
+    "ghcr.io/devcontainers/features/github-cli:1",
+    "ghcr.io/h11h-io/devcontainer/coder:1"
   ],
   "postStartCommand": "configure-git-identity"
 }
