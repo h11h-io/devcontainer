@@ -85,9 +85,14 @@ ensure_dirs() {
 		mkdir -p "${REMOTE_USER_HOME}/.npm-global"
 	fi
 
-	# Fix ownership if not root
+	# Fix ownership if not root — only chown directories this feature creates
 	if [ "${REMOTE_USER}" != "root" ]; then
-		chown -R "${REMOTE_USER}:" "${REMOTE_USER_HOME}/.local" 2>/dev/null || true
+		if [ "${CONFIGURE_PNPM}" = "true" ]; then
+			chown -R "${REMOTE_USER}:" "${REMOTE_USER_HOME}/.local/share/pnpm" 2>/dev/null || true
+		fi
+		if [ "${CONFIGURE_PIPX}" = "true" ]; then
+			chown -R "${REMOTE_USER}:" "${REMOTE_USER_HOME}/.local/bin" 2>/dev/null || true
+		fi
 		if [ "${CONFIGURE_NPM}" = "true" ]; then
 			chown -R "${REMOTE_USER}:" "${REMOTE_USER_HOME}/.npm-global" 2>/dev/null || true
 		fi

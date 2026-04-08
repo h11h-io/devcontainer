@@ -119,7 +119,7 @@ grep -qF 'PNPM_HOME' "${TEST_HOME}/.bashrc" &&
 
 # ── 7. inject_config is idempotent (no duplicate blocks) ─────────────────────
 inject_config "${TEST_HOME}/.bashrc" "${block}"
-count=$(grep -cF '# >> userspace-pkg-homes config >>' "${TEST_HOME}/.bashrc")
+count=$(grep -cF '# >> userspace-pkg-homes config >>' "${TEST_HOME}/.bashrc" || true)
 [ "$count" -eq 1 ] &&
 	pass "inject_config: idempotent (single marker block after double inject)" ||
 	fail "inject_config: idempotent (single marker block after double inject)" "found ${count} marker blocks"
