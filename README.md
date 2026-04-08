@@ -8,6 +8,7 @@ Reusable [devcontainer features](https://containers.dev/features) published to G
 
 | Feature | GHCR Reference | Description |
 |---------|---------------|-------------|
+| [**h11h Foundation**](#h11h-foundation) | `ghcr.io/h11h-io/devcontainer/h11h-foundation:1` | **Meta feature** — all h11h-io features in one line with sensible defaults |
 | [Git Identity from GitHub](#git-identity-from-github) | `ghcr.io/h11h-io/devcontainer/git-identity-from-github:1` | Auto-configures `git user.name` / `user.email` from your GitHub account |
 | [Devbox](#devbox) | `ghcr.io/h11h-io/devcontainer/devbox:1` | Installs [Devbox](https://www.jetify.com/devbox) and runs `devbox install` on container creation |
 | [Oh My Zsh](#oh-my-zsh) | `ghcr.io/h11h-io/devcontainer/oh-my-zsh:1` | Installs zsh, Oh My Zsh, and a configurable set of plugins and themes |
@@ -15,6 +16,113 @@ Reusable [devcontainer features](https://containers.dev/features) published to G
 | [Supabase CLI](#supabase-cli) | `ghcr.io/h11h-io/devcontainer/supabase-cli:1` | Installs the Supabase CLI with Docker image pre-pull |
 | [Coder CLI](#coder) | `ghcr.io/h11h-io/devcontainer/coder:1` | Installs the [Coder](https://coder.com) CLI |
 | [Userspace Package Homes](#userspace-package-homes) | `ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1` | Configures writable userspace directories for global package installs (pnpm, pipx, npm) |
+
+---
+
+## h11h Foundation
+
+**One feature to rule them all.** Instead of listing every h11h-io feature individually, add a single `h11h-foundation` feature and get everything with sensible defaults. Disable any sub-feature you don't need with the `disable` option.
+
+### Quick start (zero config)
+
+```jsonc
+// devcontainer.json
+{
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/h11h-io/devcontainer/h11h-foundation:1": {}
+  }
+}
+```
+
+This installs all seven sub-features with their defaults (inspired by the Trellis project config):
+
+| Sub-feature | Default behaviour |
+|-------------|-------------------|
+| git-identity-from-github | Auto-configures git identity at start |
+| devbox | Installs Devbox CLI, runs `devbox install`, exports global profile |
+| oh-my-zsh | Installs zsh + Oh My Zsh with `agnoster` theme and common plugins |
+| project-setup | Lefthook install + direnv allow on create |
+| supabase-cli | Installs Supabase CLI v2.84.2, waits 60s for Docker |
+| coder | Installs the Coder CLI |
+| userspace-pkg-homes | Configures PNPM_HOME on PATH |
+
+### Disabling sub-features
+
+Pass a comma-separated list of sub-feature IDs to `disable` to get everything *except* what's listed:
+
+```jsonc
+{
+  "features": {
+    "ghcr.io/h11h-io/devcontainer/h11h-foundation:1": {
+      "disable": "supabase-cli,coder"
+    }
+  }
+}
+```
+
+Valid IDs: `git-identity-from-github`, `devbox`, `oh-my-zsh`, `project-setup`, `supabase-cli`, `coder`, `userspace-pkg-homes`.
+
+### Customising sub-feature options
+
+Options are passed through to the corresponding sub-feature. Option names are prefixed to avoid collisions where necessary (e.g. three features have a "version" option):
+
+```jsonc
+{
+  "features": {
+    "ghcr.io/h11h-io/devcontainer/h11h-foundation:1": {
+      "ohmyzshTheme": "robbyrussell",
+      "ohmyzshPlugins": "git sudo z zsh-autosuggestions zsh-syntax-highlighting",
+      "devboxVersion": "0.15.0",
+      "supabaseVersion": "2.90.0",
+      "nodeSubdirs": "ui api",
+      "pythonSubdirs": "backend",
+      "envFiles": "ui/.env.local.example:ui/.env.local",
+      "configurePipx": true
+    }
+  }
+}
+```
+
+### All options
+
+| Option | Type | Default | Sub-feature |
+|--------|------|---------|-------------|
+| `disable` | `string` | `""` | — |
+| `gitIdentityOverwrite` | `boolean` | `false` | git-identity-from-github |
+| `devboxVersion` | `string` | `"latest"` | devbox |
+| `exportGlobalProfile` | `boolean` | `true` | devbox |
+| `ohmyzshTheme` | `string` | `"agnoster"` | oh-my-zsh |
+| `ohmyzshPlugins` | `string` | `"git sudo z history colored-man-pages docker python node pnpm direnv zsh-autosuggestions zsh-syntax-highlighting"` | oh-my-zsh |
+| `extraRcSnippets` | `string` | `""` | oh-my-zsh |
+| `extraRcFile` | `string` | `""` | oh-my-zsh |
+| `autosuggestStyle` | `string` | `"fg=60"` | oh-my-zsh |
+| `autosuggestStrategy` | `string` | `"history completion"` | oh-my-zsh |
+| `nodeSubdirs` | `string` | `""` | project-setup |
+| `pythonSubdirs` | `string` | `""` | project-setup |
+| `envFiles` | `string` | `""` | project-setup |
+| `lefthookInstall` | `boolean` | `true` | project-setup |
+| `direnvAllow` | `boolean` | `true` | project-setup |
+| `supabaseVersion` | `string` | `"2.84.2"` | supabase-cli |
+| `dockerWaitSeconds` | `string` | `"60"` | supabase-cli |
+| `coderVersion` | `string` | `"latest"` | coder |
+| `configurePnpm` | `boolean` | `true` | userspace-pkg-homes |
+| `configurePipx` | `boolean` | `false` | userspace-pkg-homes |
+| `configureNpm` | `boolean` | `false` | userspace-pkg-homes |
+
+### How it works
+
+- **Build time (`install.sh`)**: parses the `disable` list, then runs each enabled sub-feature's `install.sh` with the appropriate option values mapped to the env vars expected by that sub-feature. Persists the disable list and other config to `/usr/local/share/h11h-foundation/` for use by lifecycle scripts.
+- **Container creation (`onCreateCommand`)**: runs `devbox-on-create` (if devbox is enabled).
+- **Container creation (`postCreateCommand`)**: runs `project-setup-post-create` (if project-setup is enabled).
+- **Container start (`postStartCommand`)**: runs `configure-git-identity`, `devbox-post-start`, and `supabase-post-start` for each enabled sub-feature.
+
+### h11h Foundation vs individual features
+
+Use `h11h-foundation` when you want the full h11h-io stack with minimal boilerplate. Use individual features when you only need one or two specific tools, or when you need to control the installation order between h11h-io features and other third-party features.
 
 ---
 
@@ -360,6 +468,24 @@ Here's an example `devcontainer.json` that uses all features together:
 }
 ```
 
+Or equivalently, using `h11h-foundation` for all the h11h-io features in a single line:
+
+```jsonc
+{
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/h11h-io/devcontainer/h11h-foundation:1": {
+      "ohmyzshPlugins": "git sudo z zsh-autosuggestions zsh-syntax-highlighting",
+      "nodeSubdirs": "ui api",
+      "pythonSubdirs": "backend",
+      "envFiles": "ui/.env.local.example:ui/.env.local"
+    }
+  }
+}
+```
+
 ---
 
 ## Local Development
@@ -385,6 +511,7 @@ bash test/unit/test_project_setup.sh
 bash test/unit/test_supabase_cli_install.sh
 bash test/unit/test_coder_install.sh
 bash test/unit/test_userspace_pkg_homes.sh
+bash test/unit/test_h11h_foundation.sh
 ```
 
 ### Linting

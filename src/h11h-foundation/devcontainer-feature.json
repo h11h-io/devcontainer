@@ -1,0 +1,122 @@
+{
+  "id": "h11h-foundation",
+  "version": "1.0.0",
+  "name": "h11h Foundation",
+  "description": "Meta feature that packages all h11h-io devcontainer features into a single, configurable feature. Includes: git-identity-from-github, devbox, oh-my-zsh, project-setup, supabase-cli, coder, and userspace-pkg-homes. Individual sub-features can be disabled via the 'disable' option.",
+  "options": {
+    "disable": {
+      "type": "string",
+      "default": "",
+      "description": "Comma-separated list of sub-feature IDs to disable. Valid IDs: git-identity-from-github, devbox, oh-my-zsh, project-setup, supabase-cli, coder, userspace-pkg-homes."
+    },
+    "gitIdentityOverwrite": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, overwrite any existing git user.name and user.email configuration. (git-identity-from-github)"
+    },
+    "devboxVersion": {
+      "type": "string",
+      "default": "latest",
+      "description": "Version of Devbox to install, or 'latest'. (devbox)"
+    },
+    "exportGlobalProfile": {
+      "type": "boolean",
+      "default": true,
+      "description": "When true, export the global devbox Nix profile into login shells. (devbox)"
+    },
+    "ohmyzshTheme": {
+      "type": "string",
+      "default": "agnoster",
+      "description": "Oh My Zsh theme name. (oh-my-zsh)"
+    },
+    "ohmyzshPlugins": {
+      "type": "string",
+      "default": "git sudo z history colored-man-pages docker python node pnpm direnv zsh-autosuggestions zsh-syntax-highlighting",
+      "description": "Space-separated list of Oh My Zsh plugins. (oh-my-zsh)"
+    },
+    "extraRcSnippets": {
+      "type": "string",
+      "default": "",
+      "description": "Additional shell code appended to .zshrc after 'source oh-my-zsh.sh'. (oh-my-zsh)"
+    },
+    "extraRcFile": {
+      "type": "string",
+      "default": "",
+      "description": "Path to a shell file whose contents are appended to .zshrc. (oh-my-zsh)"
+    },
+    "autosuggestStyle": {
+      "type": "string",
+      "default": "fg=60",
+      "description": "Sets ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE if non-empty. (oh-my-zsh)"
+    },
+    "autosuggestStrategy": {
+      "type": "string",
+      "default": "history completion",
+      "description": "Sets ZSH_AUTOSUGGEST_STRATEGY if non-empty. (oh-my-zsh)"
+    },
+    "nodeSubdirs": {
+      "type": "string",
+      "default": "",
+      "description": "Space-separated list of subdirectories containing package.json to run install in. (project-setup)"
+    },
+    "pythonSubdirs": {
+      "type": "string",
+      "default": "",
+      "description": "Space-separated list of subdirectories containing pyproject.toml to run 'uv sync' in. (project-setup)"
+    },
+    "envFiles": {
+      "type": "string",
+      "default": "",
+      "description": "Space-separated list of example:target pairs to copy. (project-setup)"
+    },
+    "lefthookInstall": {
+      "type": "boolean",
+      "default": true,
+      "description": "Run 'lefthook install' on container creation. (project-setup)"
+    },
+    "direnvAllow": {
+      "type": "boolean",
+      "default": true,
+      "description": "Run 'direnv allow .' on container creation. (project-setup)"
+    },
+    "supabaseVersion": {
+      "type": "string",
+      "default": "2.84.2",
+      "description": "Supabase CLI version to install. (supabase-cli)"
+    },
+    "dockerWaitSeconds": {
+      "type": "string",
+      "default": "60",
+      "description": "Seconds to wait for Docker daemon before pre-pulling Supabase images. (supabase-cli)"
+    },
+    "coderVersion": {
+      "type": "string",
+      "default": "latest",
+      "description": "Coder CLI version to install, or 'latest'. (coder)"
+    },
+    "configurePnpm": {
+      "type": "boolean",
+      "default": true,
+      "description": "Configure PNPM_HOME and add it to PATH. (userspace-pkg-homes)"
+    },
+    "configurePipx": {
+      "type": "boolean",
+      "default": false,
+      "description": "Configure PIPX_BIN_DIR and add it to PATH. (userspace-pkg-homes)"
+    },
+    "configureNpm": {
+      "type": "boolean",
+      "default": false,
+      "description": "Configure NPM_CONFIG_PREFIX and add its bin directory to PATH. (userspace-pkg-homes)"
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/docker-in-docker:2",
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1",
+    "ghcr.io/devcontainers/features/github-cli:1",
+    "ghcr.io/devcontainers/features/node:1"
+  ],
+  "onCreateCommand": "h11h-foundation-on-create",
+  "postCreateCommand": "h11h-foundation-post-create",
+  "postStartCommand": "h11h-foundation-post-start"
+}

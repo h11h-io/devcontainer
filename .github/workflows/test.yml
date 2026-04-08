@@ -41,6 +41,9 @@ jobs:
       - name: "Run project-setup unit tests"
         run: bash test/unit/test_project_setup.sh
 
+      - name: "Run h11h-foundation unit tests"
+        run: bash test/unit/test_h11h_foundation.sh
+
   # ── integration tests (Docker, devcontainer CLI) ──────────────────────────
   integration-git-identity:
     name: "Integration — git-identity-from-github (${{ matrix.base-image }})"
