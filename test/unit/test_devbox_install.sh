@@ -379,3 +379,85 @@ grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" 2>/dev/null &&
 	pass "on-create: nix-daemon sourcing skipped when profile file absent"
 
 summary
+
+# ── devbox-post-start.sh unit tests ───────────────────────────────────────────
+POSTSTART_SCRIPT="${REPO_ROOT}/src/devbox/devbox-post-start.sh"
+
+echo ""
+echo "=== devbox-post-start.sh unit tests ==="
+echo ""
+
+# 18. post-start exits 0 and skips when nix-daemon binary is absent
+TEST_BIN=$(new_tmp)
+# PATH has no nix-daemon binary
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" \
+	bash "${POSTSTART_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+[ "${rc}" -eq 0 ] &&
+	pass "post-start: exits 0 when nix-daemon binary absent" ||
+	fail "post-start: exits 0 when nix-daemon binary absent" "exit code: ${rc}"
+
+# 19. post-start starts nix-daemon when binary is present and not running
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+# Fake nix-daemon binary that records invocation and exits immediately
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep that always says not running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Patch the binary path to point at our fake binary
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" &&
+	pass "post-start: starts nix-daemon when binary present and not running" ||
+	fail "post-start: starts nix-daemon when binary present and not running" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)"
+rm -f "${DAEMON_LOG}"
+
+# 20. post-start skips starting nix-daemon when it is already running
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep that reports nix-daemon as already running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "post-start: must not start nix-daemon when already running" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "post-start: skips nix-daemon start when already running"
+rm -f "${DAEMON_LOG}"
+
+# 21. install.sh installs devbox-post-start helper
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+test -x "${TEST_BIN}/devbox-post-start" &&
+	pass "install: devbox-post-start helper installed" ||
+	fail "install: devbox-post-start helper installed" "not found in ${TEST_BIN}"
+
+summary
