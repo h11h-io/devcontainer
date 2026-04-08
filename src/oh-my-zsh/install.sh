@@ -3,7 +3,6 @@ set -euo pipefail
 
 PLUGINS="${PLUGINS:-git sudo z history colored-man-pages zsh-autosuggestions zsh-syntax-highlighting pnpm}"
 THEME="${THEME:-robbyrussell}"
-EXTRARCSNIPPETS="${EXTRARCSNIPPETS:-}"
 EXTRARCFILE="${EXTRARCFILE:-}"
 AUTOSUGGESTSTYLE="${AUTOSUGGESTSTYLE:-}"
 AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
@@ -90,9 +89,6 @@ write_zshrc() {
 		fi
 		if [ -n "${AUTOSUGGESTSTRATEGY}" ]; then
 			printf 'ZSH_AUTOSUGGEST_STRATEGY=(%s)\n' "${AUTOSUGGESTSTRATEGY}"
-		fi
-		if [ -n "${EXTRARCSNIPPETS}" ]; then
-			printf '%s\n' "${EXTRARCSNIPPETS}"
 		fi
 		if [ -n "${EXTRARCFILE}" ]; then
 			case "${EXTRARCFILE}" in
