@@ -2,12 +2,12 @@
   "id": "project-setup",
   "version": "1.0.0",
   "name": "Project Setup",
-  "description": "Runs project setup tasks on container creation: pnpm install for Node subdirectories, uv sync for Python subdirectories, copies .env example files, runs lefthook install, and runs direnv allow. Tools (pnpm, uv, lefthook, direnv) must already be available in the container.",
+  "description": "Runs project setup tasks on container creation: auto-detected package manager install for Node subdirectories, uv sync for Python subdirectories, copies .env example files, runs lefthook install, and runs direnv allow. Tools must already be available in the container.",
   "options": {
     "nodeSubdirs": {
       "type": "string",
       "default": "",
-      "description": "Space-separated list of subdirectories containing package.json to run 'pnpm install' in (relative to the workspace root)."
+      "description": "Space-separated list of subdirectories containing package.json to run the detected package manager's 'install' command in (relative to the workspace root). The package manager is auto-detected from the 'packageManager' field in package.json, walking up to the workspace root; defaults to npm."
     },
     "pythonSubdirs": {
       "type": "string",

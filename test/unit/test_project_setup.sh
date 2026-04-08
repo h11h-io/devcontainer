@@ -352,7 +352,64 @@ test ! -f "${WS}/ui/.env.local" &&
 	pass "envfiles: target not created when example missing" ||
 	fail "envfiles: target not created when example missing" "target was unexpectedly created"
 
-# 15. lefthook install is called when lefthookInstall=true
+# 15. env file: invalid pair with no colon emits WARNING and continues
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+CFG=$(make_config "" "" "nodotenv" "false" "false")
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
+rc=0
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] &&
+	pass "envfiles: exits 0 for invalid pair with no colon" ||
+	fail "envfiles: exits 0 for invalid pair with no colon" "exit code was $rc"
+echo "$out" | grep -q "WARNING" &&
+	pass "envfiles: WARNING printed for pair with no colon" ||
+	fail "envfiles: WARNING printed for pair with no colon" "output: $out"
+
+# 16. env file: invalid pair with empty example side (:target) emits WARNING
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+CFG=$(make_config "" "" ":target.env" "false" "false")
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
+rc=0
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] &&
+	pass "envfiles: exits 0 for pair with empty left side" ||
+	fail "envfiles: exits 0 for pair with empty left side" "exit code was $rc"
+echo "$out" | grep -q "WARNING" &&
+	pass "envfiles: WARNING printed for pair with empty left side" ||
+	fail "envfiles: WARNING printed for pair with empty left side" "output: $out"
+
+# 17. env file: invalid pair with empty target side (example:) emits WARNING
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+CFG=$(make_config "" "" "example.env:" "false" "false")
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
+rc=0
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] &&
+	pass "envfiles: exits 0 for pair with empty right side" ||
+	fail "envfiles: exits 0 for pair with empty right side" "exit code was $rc"
+echo "$out" | grep -q "WARNING" &&
+	pass "envfiles: WARNING printed for pair with empty right side" ||
+	fail "envfiles: WARNING printed for pair with empty right side" "output: $out"
+
+# 18. env file: target parent directory created automatically when it does not exist
+TEST_BIN=$(new_tmp)
+make_post_create_mock_bin "$TEST_BIN"
+WS=$(new_tmp)
+# example lives at WS root; target lives in a subdir that has not been created yet
+echo "EXAMPLE=1" >"${WS}/.env.example"
+CFG=$(make_config "" "" ".env.example:nested/subdir/.env" "false" "false")
+run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1
+test -f "${WS}/nested/subdir/.env" &&
+	pass "envfiles: target created in non-existent subdirectory via mkdir -p" ||
+	fail "envfiles: target created in non-existent subdirectory via mkdir -p" "file not found: ${WS}/nested/subdir/.env"
+
+# 19. lefthook install is called when lefthookInstall=true
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -362,7 +419,7 @@ grep -q "install" "${TEST_BIN}/lefthook_calls.log" &&
 	pass "lefthook: lefthook install called when lefthookInstall=true" ||
 	fail "lefthook: lefthook install called when lefthookInstall=true" "calls: $(cat "${TEST_BIN}/lefthook_calls.log" 2>/dev/null)"
 
-# 16. lefthook install is NOT called when lefthookInstall=false
+# 20. lefthook install is NOT called when lefthookInstall=false
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -372,7 +429,7 @@ test ! -f "${TEST_BIN}/lefthook_calls.log" &&
 	pass "lefthook: lefthook install skipped when lefthookInstall=false" ||
 	fail "lefthook: lefthook install skipped when lefthookInstall=false" "calls: $(cat "${TEST_BIN}/lefthook_calls.log" 2>/dev/null)"
 
-# 17. lefthook warns when lefthook not found but lefthookInstall=true
+# 21. lefthook warns when lefthook not found but lefthookInstall=true
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -382,7 +439,7 @@ echo "$out" | grep -q "WARNING" &&
 	pass "lefthook: WARNING printed when lefthook not found" ||
 	fail "lefthook: WARNING printed when lefthook not found" "output: $out"
 
-# 18. direnv allow is called when direnvAllow=true
+# 22. direnv allow is called when direnvAllow=true
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -392,7 +449,7 @@ grep -q "allow" "${TEST_BIN}/direnv_calls.log" &&
 	pass "direnv: direnv allow called when direnvAllow=true" ||
 	fail "direnv: direnv allow called when direnvAllow=true" "calls: $(cat "${TEST_BIN}/direnv_calls.log" 2>/dev/null)"
 
-# 19. direnv allow is NOT called when direnvAllow=false
+# 23. direnv allow is NOT called when direnvAllow=false
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -402,7 +459,7 @@ test ! -f "${TEST_BIN}/direnv_calls.log" &&
 	pass "direnv: direnv allow skipped when direnvAllow=false" ||
 	fail "direnv: direnv allow skipped when direnvAllow=false" "calls: $(cat "${TEST_BIN}/direnv_calls.log" 2>/dev/null)"
 
-# 20. direnv warns when direnv not found but direnvAllow=true
+# 24. direnv warns when direnv not found but direnvAllow=true
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -412,7 +469,7 @@ echo "$out" | grep -q "WARNING" &&
 	pass "direnv: WARNING printed when direnv not found" ||
 	fail "direnv: WARNING printed when direnv not found" "output: $out"
 
-# 21. Script continues (exit 0) when pnpm install fails
+# 25. Script continues (exit 0) when pnpm install fails
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 # Override pnpm to fail
@@ -431,7 +488,7 @@ run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>
 	pass "graceful: script exits 0 when pnpm install fails" ||
 	fail "graceful: script exits 0 when pnpm install fails" "exit code was $rc"
 
-# 22. Script continues (exit 0) when uv sync fails
+# 26. Script continues (exit 0) when uv sync fails
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 cat >"${TEST_BIN}/uv" <<'EOF'
@@ -449,7 +506,7 @@ run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" UV_CMD=uv >/d
 	pass "graceful: script exits 0 when uv sync fails" ||
 	fail "graceful: script exits 0 when uv sync fails" "exit code was $rc"
 
-# 23. Script continues (exit 0) when lefthook install fails
+# 27. Script continues (exit 0) when lefthook install fails
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 cat >"${TEST_BIN}/lefthook" <<'EOF'
@@ -465,7 +522,7 @@ run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" LEFTHOOK_CMD=
 	pass "graceful: script exits 0 when lefthook install fails" ||
 	fail "graceful: script exits 0 when lefthook install fails" "exit code was $rc"
 
-# 24. Script continues (exit 0) when direnv allow fails
+# 28. Script continues (exit 0) when direnv allow fails
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 cat >"${TEST_BIN}/direnv" <<'EOF'
@@ -481,7 +538,7 @@ run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" DIRENV_CMD=di
 	pass "graceful: script exits 0 when direnv allow fails" ||
 	fail "graceful: script exits 0 when direnv allow fails" "exit code was $rc"
 
-# 25. All steps run together in a combined scenario
+# 29. All steps run together in a combined scenario
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -508,7 +565,7 @@ grep -q "allow" "${TEST_BIN}/direnv_calls.log" &&
 	pass "combined: direnv allow called" ||
 	fail "combined: direnv allow called" "direnv_calls: $(cat "${TEST_BIN}/direnv_calls.log" 2>/dev/null)"
 
-# 26. npm fallback: no packageManager in package.json → npm is used
+# 30. npm fallback: no packageManager in package.json → npm is used
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -520,7 +577,7 @@ grep -q "install" "${TEST_BIN}/npm_calls.log" &&
 	pass "pkg-manager: falls back to npm when no packageManager field" ||
 	fail "pkg-manager: falls back to npm when no packageManager field" "npm_calls: $(cat "${TEST_BIN}/npm_calls.log" 2>/dev/null)"
 
-# 27. walk-up: packageManager in workspace root package.json used when absent in subdir
+# 31. walk-up: packageManager in workspace root package.json used when absent in subdir
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
@@ -533,7 +590,7 @@ grep -q "install" "${TEST_BIN}/pnpm_calls.log" &&
 	pass "pkg-manager: uses packageManager from ancestor package.json" ||
 	fail "pkg-manager: uses packageManager from ancestor package.json" "pnpm_calls: $(cat "${TEST_BIN}/pnpm_calls.log" 2>/dev/null)"
 
-# 28. subdir packageManager takes precedence over ancestor
+# 32. subdir packageManager takes precedence over ancestor
 TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)

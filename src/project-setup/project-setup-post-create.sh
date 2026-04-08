@@ -112,15 +112,33 @@ fi
 
 if [ -n "$ENV_FILES" ]; then
 	for pair in $ENV_FILES; do
-		example="${WORKSPACE}/${pair%%:*}"
-		target="${WORKSPACE}/${pair##*:}"
+		# Validate: must contain exactly one ':' with non-empty parts on both sides.
+		if [ "${pair#*:}" = "$pair" ] || [ "${pair%%:*}" != "${pair%:*}" ]; then
+			log "WARNING: invalid env file mapping '${pair}'; expected example:target."
+			continue
+		fi
+		example_rel="${pair%%:*}"
+		target_rel="${pair##*:}"
+		if [ -z "$example_rel" ] || [ -z "$target_rel" ]; then
+			log "WARNING: invalid env file mapping '${pair}'; expected example:target."
+			continue
+		fi
+		example="${WORKSPACE}/${example_rel}"
+		target="${WORKSPACE}/${target_rel}"
 		if [ -f "$target" ]; then
 			log "$(basename "$target") already exists; skipping copy."
 		elif [ -f "$example" ]; then
-			cp "$example" "$target"
-			log "copied $(basename "$example") → $(basename "$target")."
+			if mkdir -p "$(dirname "$target")"; then
+				if cp "$example" "$target"; then
+					log "copied $(basename "$example") → $(basename "$target")."
+				else
+					log "WARNING: failed to copy ${example_rel} to ${target_rel}; continuing."
+				fi
+			else
+				log "WARNING: failed to create parent directory for ${target_rel}; continuing."
+			fi
 		else
-			log "WARNING: example file ${pair%%:*} not found; skipping."
+			log "WARNING: example file ${example_rel} not found; skipping."
 		fi
 	done
 fi
