@@ -6,7 +6,7 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
     },
-    "ghcr.io/h11h-io/devcontainer/git-identity-from-github:1": {}
+    "../src/git-identity-from-github": {}
   },
   "postCreateCommand": "npm install -g @devcontainers/cli",
   "customizations": {
