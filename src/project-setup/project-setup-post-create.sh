@@ -113,6 +113,8 @@ fi
 if [ -n "$ENV_FILES" ]; then
 	for pair in $ENV_FILES; do
 		# Validate: must contain exactly one ':' with non-empty parts on both sides.
+		# ${pair#*:} = "$pair"  → no colon at all
+		# ${pair%%:*} != ${pair%:*}  → more than one colon (first-token differs from last-token)
 		if [ "${pair#*:}" = "$pair" ] || [ "${pair%%:*}" != "${pair%:*}" ]; then
 			log "WARNING: invalid env file mapping '${pair}'; expected example:target."
 			continue

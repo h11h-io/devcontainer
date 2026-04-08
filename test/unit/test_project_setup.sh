@@ -357,9 +357,8 @@ TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 CFG=$(make_config "" "" "nodotenv" "false" "false")
-out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
 rc=0
-run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1) || rc=$?
 [ "$rc" -eq 0 ] &&
 	pass "envfiles: exits 0 for invalid pair with no colon" ||
 	fail "envfiles: exits 0 for invalid pair with no colon" "exit code was $rc"
@@ -372,9 +371,8 @@ TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 CFG=$(make_config "" "" ":target.env" "false" "false")
-out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
 rc=0
-run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1) || rc=$?
 [ "$rc" -eq 0 ] &&
 	pass "envfiles: exits 0 for pair with empty left side" ||
 	fail "envfiles: exits 0 for pair with empty left side" "exit code was $rc"
@@ -387,9 +385,8 @@ TEST_BIN=$(new_tmp)
 make_post_create_mock_bin "$TEST_BIN"
 WS=$(new_tmp)
 CFG=$(make_config "" "" "example.env:" "false" "false")
-out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1)
 rc=0
-run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" >/dev/null 2>&1 || rc=$?
+out=$(run_post_create "$TEST_BIN" "$WS" PROJECT_SETUP_CONFIG_FILE="$CFG" 2>&1) || rc=$?
 [ "$rc" -eq 0 ] &&
 	pass "envfiles: exits 0 for pair with empty right side" ||
 	fail "envfiles: exits 0 for pair with empty right side" "exit code was $rc"
