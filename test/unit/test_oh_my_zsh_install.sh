@@ -177,7 +177,12 @@ TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
 	EXTRARCSNIPPETS="" \
 	write_zshrc
-# Only the 5 standard lines should be present — verify by counting non-empty lines
+# Exactly 5 standard lines should be present:
+#   1. # managed by oh-my-zsh devcontainer feature
+#   2. export ZSH="$HOME/.oh-my-zsh"
+#   3. ZSH_THEME="robbyrussell"
+#   4. plugins=(git)
+#   5. source "$ZSH/oh-my-zsh.sh"
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 [ "${LINE_COUNT}" -eq 5 ] &&
 	pass "write_zshrc: no extra lines when EXTRARCSNIPPETS is empty" ||

@@ -350,7 +350,7 @@ EOF
 chmod +x "${TEST_BIN}/devbox"
 # Patch the script to use a fake nix-daemon path via a wrapper approach:
 # We can't inject the path easily, so we create a temporary patched copy.
-PATCHED_SCRIPT=$(mktemp /tmp/devbox_on_create_patched.XXXXXX.sh)
+PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh|${FAKE_NIX_DAEMON}|g" \
 	"${ONCREATE_SCRIPT}" >"${PATCHED_SCRIPT}"
 chmod +x "${PATCHED_SCRIPT}"

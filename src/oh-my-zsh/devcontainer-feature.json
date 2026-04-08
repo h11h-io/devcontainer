@@ -17,7 +17,7 @@
     "extraRcSnippets": {
       "type": "string",
       "default": "",
-      "description": "Additional shell code appended after 'source oh-my-zsh.sh' in the generated .zshrc. Use this to inject project-specific customisations (NVM sourcing, direnv hooks, autosuggest config, etc.) without a separate post-create script."
+      "description": "Additional shell code appended after 'source oh-my-zsh.sh' in the generated .zshrc. Use this to inject project-specific customizations (NVM sourcing, direnv hooks, autosuggest config, etc.) without a separate post-create script."
     },
     "autosuggestStyle": {
       "type": "string",
