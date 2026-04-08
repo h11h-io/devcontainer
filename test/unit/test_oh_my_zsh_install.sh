@@ -163,19 +163,10 @@ grep -q "clone" "${CLONE_LOG2}" 2>/dev/null &&
 	fail "install_external_plugins: must not clone already-present plugin" "git log: $(cat "${CLONE_LOG2}" 2>/dev/null)" ||
 	pass "install_external_plugins: skips already-installed plugin"
 
-# 13. write_zshrc appends extraRcSnippets after source line
+# 13. write_zshrc produces exactly 5 standard lines when no extras are configured
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS='export NVM_DIR="$HOME/.nvm"' \
-	write_zshrc
-grep -q 'NVM_DIR' "${TEST_HOME}/.zshrc" &&
-	pass "write_zshrc: appends extraRcSnippets to .zshrc" ||
-	fail "write_zshrc: appends extraRcSnippets to .zshrc" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
-
-# 14. write_zshrc does NOT add extraRcSnippets line when EXTRARCSNIPPETS is empty
-TEST_HOME=$(new_tmp)
-REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS="" \
+	EXTRARCFILE="" \
 	write_zshrc
 # Exactly 5 standard lines should be present:
 #   1. # managed by oh-my-zsh devcontainer feature
@@ -185,46 +176,46 @@ REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="ro
 #   5. source "$ZSH/oh-my-zsh.sh"
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 [ "${LINE_COUNT}" -eq 5 ] &&
-	pass "write_zshrc: no extra lines when EXTRARCSNIPPETS is empty" ||
-	fail "write_zshrc: no extra lines when EXTRARCSNIPPETS is empty" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+	pass "write_zshrc: exactly 5 standard lines when no extras configured" ||
+	fail "write_zshrc: exactly 5 standard lines when no extras configured" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 15. write_zshrc appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is set
+# 14. write_zshrc appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is set
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	AUTOSUGGESTSTYLE="fg=60" AUTOSUGGESTSTRATEGY="" EXTRARCSNIPPETS="" \
+	AUTOSUGGESTSTYLE="fg=60" AUTOSUGGESTSTRATEGY="" \
 	write_zshrc
 grep -q 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=60"' "${TEST_HOME}/.zshrc" &&
 	pass "write_zshrc: appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle set" ||
 	fail "write_zshrc: appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle set" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 16. write_zshrc does NOT add ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is empty
+# 15. write_zshrc does NOT add ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is empty
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" EXTRARCSNIPPETS="" \
+	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" \
 	write_zshrc
 grep -q 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE' "${TEST_HOME}/.zshrc" 2>/dev/null &&
 	fail "write_zshrc: must not add ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle empty" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
 	pass "write_zshrc: no ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle empty"
 
-# 17. write_zshrc appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy is set
+# 16. write_zshrc appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy is set
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="history completion" EXTRARCSNIPPETS="" \
+	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="history completion" \
 	write_zshrc
 grep -q 'ZSH_AUTOSUGGEST_STRATEGY=(history completion)' "${TEST_HOME}/.zshrc" &&
 	pass "write_zshrc: appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy set" ||
 	fail "write_zshrc: appends ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy set" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 18. write_zshrc does NOT add ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy is empty
+# 17. write_zshrc does NOT add ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy is empty
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" EXTRARCSNIPPETS="" \
+	AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" \
 	write_zshrc
 grep -q 'ZSH_AUTOSUGGEST_STRATEGY' "${TEST_HOME}/.zshrc" 2>/dev/null &&
 	fail "write_zshrc: must not add ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy empty" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
 	pass "write_zshrc: no ZSH_AUTOSUGGEST_STRATEGY when autosuggestStrategy empty"
 
-# 19. install_omz continues when curl/sh fails (network error resilience)
+# 18. install_omz continues when curl/sh fails (network error resilience)
 TEST_HOME=$(new_tmp)
 TEST_BIN=$(new_tmp)
 # Provide a failing curl stub
@@ -238,7 +229,7 @@ PATH="${TEST_BIN}:${PATH}" REMOTE_USER_HOME="$TEST_HOME" \
 	install_omz 2>/dev/null
 pass "install_omz: does not abort on network failure (curl returns 1)"
 
-# 20. install_external_plugins continues when git clone fails
+# 19. install_external_plugins continues when git clone fails
 TEST_HOME=$(new_tmp)
 TEST_BIN=$(new_tmp)
 cat >"${TEST_BIN}/git" <<'EOF'
@@ -254,67 +245,67 @@ PATH="${TEST_BIN}:${PATH}" REMOTE_USER_HOME="$TEST_HOME" PLUGINS="zsh-autosugges
 	install_external_plugins 2>/dev/null
 pass "install_external_plugins: does not abort when git clone fails"
 
-# 21. write_zshrc emits a runtime source line for a relative extraRcFile (file need not exist at build time)
+# 20. write_zshrc emits a runtime source line for a relative extraRcFile (file need not exist at build time)
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS="" EXTRARCFILE=".devcontainer/zshrc-extras.sh" \
+	EXTRARCFILE=".devcontainer/zshrc-extras.sh" \
 	write_zshrc
 grep -q 'zshrc-extras.sh' "${TEST_HOME}/.zshrc" &&
 	pass "write_zshrc: emits runtime source line for relative extraRcFile" ||
 	fail "write_zshrc: emits runtime source line for relative extraRcFile" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 22. write_zshrc still emits source line when extraRcFile does not exist at build time
+# 21. write_zshrc still emits source line when extraRcFile does not exist at build time
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS="" EXTRARCFILE=".devcontainer/nonexistent.sh" \
+	EXTRARCFILE=".devcontainer/nonexistent.sh" \
 	write_zshrc
 grep -q 'nonexistent.sh' "${TEST_HOME}/.zshrc" &&
 	pass "write_zshrc: emits source line for extraRcFile even when file absent at build time" ||
 	fail "write_zshrc: emits source line for extraRcFile even when file absent at build time" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 23. write_zshrc appends both extraRcSnippets (first) and extraRcFile source line when both provided
+# 22. write_zshrc ignores extraRcFile when it is empty
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS='export SNIPPET_VAR=from_snippet' EXTRARCFILE="extras.sh" \
-	write_zshrc
-ZSHRC_CONTENT=$(cat "${TEST_HOME}/.zshrc")
-SNIPPET_LINE=$(printf '%s\n' "$ZSHRC_CONTENT" | grep -n 'SNIPPET_VAR' | cut -d: -f1 || true)
-FILE_LINE=$(printf '%s\n' "$ZSHRC_CONTENT" | grep -n 'extras.sh' | head -1 | cut -d: -f1 || true)
-if [ -n "$SNIPPET_LINE" ] && [ -n "$FILE_LINE" ] && [ "$SNIPPET_LINE" -lt "$FILE_LINE" ]; then
-	pass "write_zshrc: appends snippets before file source line when both provided"
-else
-	fail "write_zshrc: appends snippets before file source line when both provided" \
-		"snippet_line=${SNIPPET_LINE} file_line=${FILE_LINE}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
-fi
-
-# 24. write_zshrc ignores extraRcFile when it is empty
-TEST_HOME=$(new_tmp)
-REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS="" EXTRARCFILE="" \
+	EXTRARCFILE="" \
 	write_zshrc
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 [ "${LINE_COUNT}" -eq 5 ] &&
 	pass "write_zshrc: no extra lines when EXTRARCFILE is empty" ||
 	fail "write_zshrc: no extra lines when EXTRARCFILE is empty" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 25. write_zshrc rejects extraRcFile with path traversal (..)
+# 23. write_zshrc rejects extraRcFile with path traversal (..)
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS="" EXTRARCFILE="../etc/passwd" \
+	EXTRARCFILE="../etc/passwd" \
 	write_zshrc 2>/dev/null
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 [ "${LINE_COUNT}" -eq 5 ] &&
 	pass "write_zshrc: rejects extraRcFile with path traversal (..)" ||
 	fail "write_zshrc: rejects extraRcFile with path traversal (..)" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
-# 26. write_zshrc rejects extraRcFile with unsafe characters (e.g. quotes)
+# 24. write_zshrc rejects extraRcFile with unsafe characters (e.g. quotes)
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
-	EXTRARCSNIPPETS="" EXTRARCFILE='foo"bar.sh' \
+	EXTRARCFILE='foo"bar.sh' \
 	write_zshrc 2>/dev/null
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
 [ "${LINE_COUNT}" -eq 5 ] &&
 	pass "write_zshrc: rejects extraRcFile with unsafe characters" ||
 	fail "write_zshrc: rejects extraRcFile with unsafe characters" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 25. write_zshrc defers snippet evaluation to runtime: .zshrc contains a source reference,
+# not command substitution syntax — safe for direnv hooks and other $(…) patterns.
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCFILE=".devcontainer/direnv-hook.zsh" \
+	write_zshrc
+grep -q 'direnv-hook.zsh' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: extraRcFile writes a source reference, not inlined content" ||
+	fail "write_zshrc: extraRcFile writes a source reference, not inlined content" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+# The .zshrc must not contain any command substitution syntax ($(…)) — file content is
+# never read at build time; command substitutions remain deferred to runtime.
+grep -q '\$(' "${TEST_HOME}/.zshrc" 2>/dev/null &&
+	fail "write_zshrc: .zshrc must not contain command substitution syntax at build time" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
+	pass "write_zshrc: .zshrc contains no command substitution syntax at build time"
 
 summary

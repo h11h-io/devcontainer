@@ -14,15 +14,10 @@
       "default": "robbyrussell",
       "description": "Oh My Zsh theme name (e.g. 'robbyrussell', 'agnoster', 'clean')."
     },
-    "extraRcSnippets": {
-      "type": "string",
-      "default": "",
-      "description": "Additional shell code appended after 'source oh-my-zsh.sh' in the generated .zshrc. Use this to inject project-specific customizations (NVM sourcing, direnv hooks, autosuggest config, etc.) without a separate post-create script."
-    },
     "extraRcFile": {
       "type": "string",
       "default": "",
-      "description": "Path to a shell file (relative to the workspace root, e.g. '.devcontainer/zshrc-extras.sh') whose contents are appended to .zshrc after 'source oh-my-zsh.sh'. Use this to keep extra snippets in a readable, syntax-highlighted file instead of a JSON string. If both extraRcSnippets and extraRcFile are provided, snippets are appended first, then the file contents."
+      "description": "Path to a shell file (relative to the workspace root, e.g. '.devcontainer/zshrc-extras.sh') that is sourced after 'source oh-my-zsh.sh' in the generated .zshrc. Use this to inject project-specific customizations — NVM sourcing, direnv hooks, PATH additions, autosuggest config, etc. — from a readable, syntax-highlighted file."
     },
     "autosuggestStyle": {
       "type": "string",
