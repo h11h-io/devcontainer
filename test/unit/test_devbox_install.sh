@@ -242,23 +242,29 @@ grep -q "^install$" "${CALL_LOG}" &&
 	fail "on-create: devbox install called when devbox.json exists" \
 		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
 
-# 8b. devbox install output is piped (stdout is not a TTY) so the Nix prompt is never shown.
-#     We verify this indirectly: pipe through cat means devbox's stdout goes to /dev/null
-#     here, so nothing leaks to our captured output, yet on-create itself still exits 0.
+# 8b. devbox install is invoked with stdin redirected from /dev/null so that
+#     fmt.Scanln() (the blocking call in devbox's Nix-install TTY check) returns
+#     immediately, and any subprocess (e.g. the nix-installer binary) also
+#     inherits /dev/null as stdin and cannot block on interactive reads.
+#     We verify that on-create still exits 0 even when the mock devbox reads stdin.
 TEST_BIN=$(new_tmp)
 WS=$(new_tmp)
 CAPTURED="${TEST_BIN}/oncreate_stdout.log"
 printf '{"packages":[]}' >"${WS}/devbox.json"
+# This mock blocks forever if stdin is a TTY; it must get EOF from /dev/null.
 cat >"${TEST_BIN}/devbox" <<'EOF'
 #!/bin/sh
+if [ "$1" = "install" ]; then
+	read -r _line || true  # returns immediately when stdin is /dev/null
+fi
 echo "mock devbox $*"
 EOF
 chmod +x "${TEST_BIN}/devbox"
 HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
 	bash "${ONCREATE_SCRIPT}" >"${CAPTURED}" 2>&1 && rc=0 || rc=$?
 [ "${rc}" -eq 0 ] &&
-	pass "on-create: exits 0 with devbox install piped through cat (non-TTY stdout)" ||
-	fail "on-create: exits 0 with devbox install piped through cat (non-TTY stdout)" \
+	pass "on-create: exits 0 with devbox install stdin redirected from /dev/null" ||
+	fail "on-create: exits 0 with devbox install stdin redirected from /dev/null" \
 		"exit code: ${rc}"
 
 # 9. devbox install is NOT called when devbox.json is absent

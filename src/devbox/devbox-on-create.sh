@@ -33,11 +33,18 @@ add_to_shell() {
 
 if [ -f "${WORKSPACE}/devbox.json" ]; then
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."
-	# Pipe devbox's stdout through cat so that it is not a TTY.  Devbox only
-	# shows the interactive Nix-installation prompt ("Press enter to continue")
-	# when isatty(stdout) is true; a non-TTY stdout causes it to install Nix
-	# silently without blocking for input.
-	if (cd "${WORKSPACE}" && devbox install | cat); then
+	# Redirect stdin from /dev/null so that every process in this command
+	# (devbox itself and the nix-installer subprocess it spawns) receives EOF
+	# on stdin instead of blocking on a TTY.
+	#
+	# Devbox gates its "Press enter to continue" prompt on
+	# isatty.IsTerminal(os.Stdout.Fd()), then calls fmt.Scanln() which reads
+	# from os.Stdin.  Redirecting stdin to /dev/null makes that Scanln return
+	# immediately with EOF, so devbox never hangs — even if stdout is still a
+	# TTY.  More importantly, the nix-installer binary that devbox spawns
+	# (cmd.Stdin = os.Stdin in nix/install.go) also inherits /dev/null as
+	# stdin, preventing it from blocking on any interactive reads of its own.
+	if (cd "${WORKSPACE}" && devbox install </dev/null); then
 		echo "devbox-on-create: devbox install complete."
 	else
 		echo "devbox-on-create: warning: devbox install failed; continuing so the container can start. Retry manually with 'cd ${WORKSPACE} && devbox install'."
