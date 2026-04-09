@@ -9,6 +9,8 @@ AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
 
+echo "oh-my-zsh: install.sh (built from git commit: @GIT_SHA@)"
+
 # Returns the git clone URL for a known external plugin, or empty string for built-in plugins.
 get_external_plugin_url() {
 	local name="$1"

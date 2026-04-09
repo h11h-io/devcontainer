@@ -152,6 +152,25 @@ grep -q -- "-f" "${TEST_BIN}/curl_calls.log" &&
 	pass "default: passes -f (force) flag" ||
 	fail "default: passes -f (force) flag" "curl log: $(cat "${TEST_BIN}/curl_calls.log" 2>/dev/null)"
 
+# 2b. FORCE=1 env var is set for the piped bash installer (matches devbox-install-action)
+#     install.sh uses: curl ... | FORCE=1 bash -s -- -f
+#     We intercept bash with a stub that records FORCE when invoked as the piped installer.
+TEST_BIN=$(new_tmp)
+FORCE_LOG="${TEST_BIN}/force_env.log"
+make_mock_bin "$TEST_BIN"
+cat >"$TEST_BIN/bash" <<BASHEOF
+#!/bin/sh
+case "\${1:-}" in
+  -s) echo "\${FORCE:-unset}" >> "${FORCE_LOG}" ;;
+  *)  /bin/bash "\$@" ;;
+esac
+BASHEOF
+chmod +x "$TEST_BIN/bash"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+grep -q "^1$" "${FORCE_LOG}" &&
+	pass "default: FORCE=1 env set for piped bash installer" ||
+	fail "default: FORCE=1 env set for piped bash installer" "log: $(cat "${FORCE_LOG}" 2>/dev/null)"
+
 # 3. Specific version sets DEVBOX_VERSION env for the piped bash installer.
 # install.sh runs:  curl ... | DEVBOX_VERSION="<ver>" bash -s -- -f
 # We intercept the piped bash call with a mock 'bash' that records the env var.
@@ -207,6 +226,14 @@ grep -q "^version$" "${TEST_BIN}/devbox_calls.log" &&
 	pass "install: devbox version called after install" ||
 	fail "install: devbox version called after install" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")"
 
+# 7b. install.sh emits a git-commit identifier line (for tracing the published artifact)
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+OUT=$(PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" 2>&1)
+echo "$OUT" | grep -q "git commit" &&
+	pass "install: emits git commit identifier line" ||
+	fail "install: emits git commit identifier line" "output: $OUT"
+
 # 8. install.sh installs devbox-on-create helper
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
@@ -242,7 +269,7 @@ grep -q "^install$" "${CALL_LOG}" &&
 	fail "on-create: devbox install called when devbox.json exists" \
 		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
 
-# 8b. devbox install is invoked with stdin redirected from /dev/null.
+# 8b. devbox install is invoked with stdin redirected from /dev/null AND CI=1 set.
 #     We use script(1) to allocate a real PTY so that stdin is a live terminal
 #     for everything that doesn't explicitly redirect it.  The mock 'devbox install'
 #     exits 1 when [ -t 0 ] is true (stdin is a TTY), so if devbox-on-create.sh
@@ -278,6 +305,83 @@ script -q -e -c "${WRAPPER}" "${CAPTURED}" >/dev/null 2>&1 && rc=0 || rc=$?
 grep -q "devbox install complete" "${CAPTURED}" &&
 	pass "on-create: stdin redirected from /dev/null (verified under PTY)" ||
 	fail "on-create: stdin redirected from /dev/null (verified under PTY)" \
+		"exit code: ${rc}, output: $(tr -d '\r' <"${CAPTURED}" 2>/dev/null)"
+
+# 8c. devbox install is invoked with CI=1 and FORCE=1 in the environment.
+#     CI=1 is the CI guard; FORCE=1 matches the official devbox-install-action
+#     approach (curl ... | FORCE=1 bash) to suppress sub-script prompts.
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+CI_FORCE_LOG="${TEST_BIN}/ci_force.log"
+ONCREATE_OUT="${TEST_BIN}/oncreate_out.log"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Mock records CI and FORCE values; exits 1 if either is wrong.
+cat >"${TEST_BIN}/devbox" <<EOF
+#!/bin/sh
+if [ "\${1:-}" = "install" ]; then
+	echo "CI=\${CI:-unset} FORCE=\${FORCE:-unset}" >> "${CI_FORCE_LOG}"
+	if [ "\${CI:-}" != "1" ]; then
+		echo "mock devbox: CI is not 1 (got: '\${CI:-unset}')" >&2
+		exit 1
+	fi
+	if [ "\${FORCE:-}" != "1" ]; then
+		echo "mock devbox: FORCE is not 1 (got: '\${FORCE:-unset}')" >&2
+		exit 1
+	fi
+fi
+echo "mock devbox \$*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >"${ONCREATE_OUT}" 2>&1
+# Verify both: CI=1 and FORCE=1 reached the mock AND install completed.
+grep -q "CI=1 FORCE=1" "${CI_FORCE_LOG}" &&
+	pass "on-create: CI=1 and FORCE=1 passed to devbox install" ||
+	fail "on-create: CI=1 and FORCE=1 passed to devbox install" \
+		"log: $(cat "${CI_FORCE_LOG}" 2>/dev/null || echo '(empty)')"
+grep -q "devbox install complete" "${ONCREATE_OUT}" &&
+	pass "on-create: devbox install completed with CI=1 FORCE=1" ||
+	fail "on-create: devbox install completed with CI=1 FORCE=1" \
+		"output: $(cat "${ONCREATE_OUT}" 2>/dev/null)"
+
+# 8d. devbox install stdout is NOT a TTY (pipe through cat breaks isatty check).
+#     In Codespaces, onCreateCommand runs with stdout wired to a real terminal.
+#     Devbox gates the "Press enter to continue" Nix install prompt on
+#     isatty.IsTerminal(os.Stdout.Fd()); we must ensure devbox sees a pipe
+#     (not a TTY) on its stdout so that check is false.
+#     The mock exits 1 when stdout IS a TTY, so if the | cat guard is removed
+#     and a PTY is allocated, the install would fail.
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+CAPTURED="${TEST_BIN}/oncreate_8d.log"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Mock exits 1 when stdout is a TTY — simulates devbox's isatty prompt gate.
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+if [ "$1" = "install" ] && [ -t 1 ]; then
+	echo "mock devbox: stdout is a TTY — | cat guard missing" >&2
+	exit 1
+fi
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+WRAPPER="${TEST_BIN}/run-oncreate-8d.sh"
+cat >"${WRAPPER}" <<EOF
+#!/bin/sh
+export HOME="${TEST_HOME}"
+export PATH="${TEST_BIN}:${PATH}"
+export containerWorkspaceFolder="${WS}"
+exec bash "${ONCREATE_SCRIPT}"
+EOF
+chmod +x "${WRAPPER}"
+# Run under a real PTY so the outer shell has stdout=TTY.
+# devbox-on-create must pipe devbox's stdout through cat to break this.
+script -q -e -c "${WRAPPER}" "${CAPTURED}" >/dev/null 2>&1 && rc=0 || rc=$?
+grep -q "devbox install complete" "${CAPTURED}" &&
+	pass "on-create: stdout not a TTY for devbox install (| cat guard verified under PTY)" ||
+	fail "on-create: stdout not a TTY for devbox install (| cat guard verified under PTY)" \
 		"exit code: ${rc}, output: $(tr -d '\r' <"${CAPTURED}" 2>/dev/null)"
 
 # 9. devbox install is NOT called when devbox.json is absent

@@ -4,6 +4,8 @@ set -e
 CODER_VERSION="${VERSION:-latest}"
 CODER_CMD="${CODER_CMD:-coder}"
 
+echo "coder: install.sh (built from git commit: @GIT_SHA@)"
+
 if command -v "$CODER_CMD" >/dev/null 2>&1; then
 	echo "coder: Coder CLI already installed ($("$CODER_CMD" version 2>/dev/null | head -1)); skipping."
 	exit 0

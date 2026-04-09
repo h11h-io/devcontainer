@@ -114,3 +114,19 @@ find . -not -path './.git/*' -name '*.sh' -print0 | xargs -0 shfmt --diff
 # Integration (requires Docker + npm i -g @devcontainers/cli)
 devcontainer features test --skip-scenarios -f <feature> -i mcr.microsoft.com/devcontainers/base:ubuntu-22.04 .
 ```
+
+## Accessing External Documentation
+
+When implementing a feature that relies on a third-party tool (e.g. devbox, Nix, Supabase CLI), always look up the official installation guide, GitHub Action, or source code first — these are the authoritative reference for the correct environment variables and flags to use.
+
+**If a URL is blocked or unreachable**, say so explicitly in a PR comment or reply rather than guessing. For example:
+
+> I need to read `https://github.com/jetify-com/devbox-install-action/blob/main/action.yml` to confirm the correct install flags, but the domain is blocked in my sandbox. Could you grant access to `github.com` or paste the relevant snippet?
+
+This lets the repository owner unblock the domain or provide the content directly, which is much faster and more accurate than inferring the correct behaviour from indirect sources.
+
+Key reference URLs for this repository's toolchain:
+- **devbox install action**: `https://github.com/jetify-com/devbox-install-action/blob/main/action.yml`
+- **devbox Nix install source**: `https://github.com/jetify-com/devbox/blob/main/internal/nix/install.go`
+- **Nix installer docs**: `https://nixos.org/download`
+- **devcontainer features spec**: `https://containers.dev/features`

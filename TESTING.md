@@ -109,9 +109,6 @@ Type `exit` when you're done. The container is discarded automatically (`--rm`).
 
 ---
 
-## Troubleshooting
----
-
 ## Running Unit Tests
 
 Unit tests exercise each feature's install script in isolation using shell mocks (no network, no root, no real installs).
@@ -193,6 +190,113 @@ The act configuration at `/root/.config/act/actrc` points to
 
 ---
 
+## Testing the Nix install prompt fix (devbox-on-create)
+
+The blocking "Press enter to continue" prompt that this feature suppresses only triggers when
+devbox detects that its **stdout is a real terminal** (`isatty.IsTerminal(os.Stdout.Fd())`).
+Codespaces `onCreateCommand` runs with stdout wired to a PTY, so you need a container with a
+PTY allocated (`docker run -it`) to reproduce and verify the fix.
+
+Three options are provided below, ordered from fastest to most complete.
+
+---
+
+### Option A: Run the script directly against local source (fastest, ~10 min)
+
+This approach is the most surgical — it mounts the `devbox-on-create.sh` source directly into
+a container so you can test your working copy without a build step.
+
+**Requires:** Docker with `--privileged` support (Docker Desktop on macOS works fine).
+`--privileged` is needed because the Nix installer writes to `/nix` and manages system daemons.
+
+```bash
+# From the repository root:
+docker run --rm -it --privileged \
+  -v "$(pwd)/src/devbox/devbox-on-create.sh:/usr/local/bin/devbox-on-create" \
+  -v "$(pwd)/test/fixtures/hello-world:/workspaces/hello-world" \
+  mcr.microsoft.com/devcontainers/base:ubuntu-22.04 \
+  bash -c '
+    # Install the devbox CLI (FORCE=1 suppresses the CLI installer's own prompts)
+    FORCE=1 curl -fsSL https://get.jetify.com/devbox | bash
+    # Run the lifecycle hook — stdout is a TTY here, which is the exact Codespaces condition.
+    # A working fix will stream output continuously and never pause for "Press Enter".
+    containerWorkspaceFolder=/workspaces/hello-world devbox-on-create
+  '
+```
+
+**Expected output** — the script runs unattended from start to finish:
+
+```
+devbox-on-create: running devbox install in /workspaces/hello-world...
+Installing Nix...          ← streams without pausing
+...
+devbox-on-create: devbox install complete.
+devbox-on-create: devbox profile path exported to shell configs.
+devbox-on-create: global devbox profile path exported to shell configs.
+devbox-on-create: nix-daemon profile sourcing added to shell configs.
+```
+
+**Without the fix** you would instead see this and the script would hang indefinitely:
+
+```
+Nix is not installed. Devbox will attempt to install it.
+
+Press enter to continue or ctrl-c to exit.
+```
+
+---
+
+### Option B: Use the sim image (exercises the full install + lifecycle)
+
+The sim image installs the devbox feature exactly as `devcontainer.json` would, then runs
+`onCreateCommand` automatically before dropping you into a shell.
+
+```bash
+# Build once from the repo root (re-run after changing src/)
+docker build -t devcontainer-sim .
+
+# Run against the built-in hello-world fixture
+# --privileged is required for the Nix installer
+docker run --rm -it --privileged \
+  -v "$(pwd)/test/fixtures/hello-world:/workspaces/hello-world" \
+  devcontainer-sim
+```
+
+The entrypoint will:
+1. Install the devbox feature (runs `src/devbox/install.sh`)
+2. Run `devbox-on-create` (the `onCreateCommand`)
+3. Drop you into a Bash shell inside the container
+
+Type `exit` when done. The container is discarded automatically.
+
+---
+
+### Option C: devcontainer features test CLI (Mac-friendly, no `--privileged` needed)
+
+If you have the [devcontainer CLI](https://github.com/devcontainers/cli) installed
+(`npm install -g @devcontainers/cli`) this is the closest approximation to the actual
+Codespaces build pipeline:
+
+```bash
+# Test the devbox feature end-to-end
+devcontainer features test \
+  --skip-scenarios \
+  -f devbox \
+  -i mcr.microsoft.com/devcontainers/base:ubuntu-22.04 \
+  .
+```
+
+The CLI builds a real Docker image with the feature installed and runs the assertions in
+`test/devbox/test.sh`.
+
+> **Note:** `devcontainer features test` does not run containers in privileged mode, so the
+> Nix installer itself may fail. The devbox CLI will still be installed and the test
+> assertions that do not depend on an active Nix store will pass. For full end-to-end Nix
+> testing, use Option A or B with `--privileged`.
+
+---
+
+## Troubleshooting
 
 **`No workspace found in /workspaces/`** — make sure you ran the `docker run` command from inside your project directory.
 

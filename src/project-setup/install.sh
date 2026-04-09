@@ -7,6 +7,8 @@ ENV_FILES="${ENVFILES:-}"
 LEFTHOOK_INSTALL="${LEFTHOOKINSTALL:-true}"
 DIRENV_ALLOW="${DIRENVALLOW:-true}"
 
+echo "project-setup: install.sh (built from git commit: @GIT_SHA@)"
+
 FEATURE_DIR="$(dirname "$0")"
 # _SHARE_DIR can be overridden in tests to avoid writing to /usr/local/share.
 _SHARE_DIR="${PROJECT_SETUP_SHARE_DIR:-/usr/local/share/project-setup}"

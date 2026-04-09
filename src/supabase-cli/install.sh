@@ -5,6 +5,8 @@ SUPABASE_CLI_VERSION="${VERSION:-2.84.2}"
 DOCKER_WAIT_SECONDS="${DOCKERWAITSECONDS:-30}"
 SUPABASE_BIN="/usr/local/bin/supabase"
 
+echo "supabase-cli: install.sh (built from git commit: @GIT_SHA@)"
+
 # Docker is required at runtime (for `supabase start`) but NOT at install time.
 # If Docker is absent when this script runs, we warn and continue — the CLI
 # binary is still useful and the postStartCommand will skip the image pre-pull

@@ -92,6 +92,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: "Inject git SHA into install scripts"
+        run: |
+          GIT_SHA="${{ github.sha }}"
+          find src -name 'install.sh' -print0 | xargs -0 sed -i "s/@GIT_SHA@/${GIT_SHA}/g"
+          echo "Injected git SHA ${GIT_SHA} into install scripts."
+
       - name: "Publish features"
         uses: devcontainers/action@v1
         with:
