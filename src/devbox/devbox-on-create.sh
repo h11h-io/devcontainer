@@ -35,19 +35,32 @@ if [ -f "${WORKSPACE}/devbox.json" ]; then
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."
 	# Run devbox install in fully non-interactive mode.
 	#
-	# Two complementary guards:
+	# Three complementary guards (following the same approach used by the
+	# official jetify-com/devbox-install-action):
 	#
-	# 1. CI=1  — the official environment variable that devbox (and the
-	#    determinate-systems nix-installer it invokes) checks to suppress all
-	#    interactive prompts and confirmations.  When CI=1 devbox prints
-	#    plain-text progress instead of blocking on "Press Enter to continue".
+	# 1. CI=1  — tells devbox we are in a CI/automated environment, which
+	#    suppresses some interactive behaviour.
 	#
-	# 2. </dev/null — belt-and-suspenders stdin redirect.  Any remaining
+	# 2. FORCE=1 — the environment variable checked by the devbox CLI
+	#    installer script (get.jetify.com/devbox) and sub-scripts to skip
+	#    confirmation prompts; matches what the official devbox-install-action
+	#    uses (`curl ... | FORCE=1 bash`).
+	#
+	# 3. </dev/null — belt-and-suspenders stdin redirect.  Any remaining
 	#    fmt.Scanln / bufio.ReadByte call receives EOF immediately rather than
-	#    blocking on a TTY.  The nix-installer subprocess that devbox spawns
-	#    (cmd.Stdin = os.Stdin in nix/install.go) also inherits /dev/null,
-	#    preventing it from blocking on any interactive reads of its own.
-	if (cd "${WORKSPACE}" && CI=1 devbox install </dev/null); then
+	#    blocking on a TTY.
+	#
+	# 4. 2>&1 | cat — THE critical guard for the isatty prompt in devbox's
+	#    EnsureNixInstalled.  Devbox gates the "Press enter to continue" Nix
+	#    install prompt on isatty.IsTerminal(os.Stdout.Fd()).  In Codespaces,
+	#    onCreateCommand runs with stdout wired to a terminal, so this check
+	#    would be true.  Piping stdout (and stderr) through `cat` turns the
+	#    write end of the pipe into devbox's stdout, which is NOT a terminal,
+	#    so IsTerminal returns false and the prompt is never shown.  Output is
+	#    still visible because cat forwards it.  With `set -o pipefail`
+	#    (inherited by the subshell), a non-zero devbox exit propagates
+	#    correctly through the pipeline.
+	if (cd "${WORKSPACE}" && CI=1 FORCE=1 devbox install </dev/null 2>&1 | cat); then
 		echo "devbox-on-create: devbox install complete."
 	else
 		echo "devbox-on-create: warning: devbox install failed; continuing so the container can start. Retry manually with 'cd ${WORKSPACE} && devbox install'."

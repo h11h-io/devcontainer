@@ -16,9 +16,9 @@ fi
 echo "devbox: installing Devbox CLI (version: ${DEVBOX_VERSION})..."
 
 if [ "$DEVBOX_VERSION" = "latest" ]; then
-	curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
+	curl -fsSL https://get.jetify.com/devbox | FORCE=1 bash -s -- -f
 else
-	curl -fsSL https://get.jetify.com/devbox | DEVBOX_VERSION="${DEVBOX_VERSION}" bash -s -- -f
+	curl -fsSL https://get.jetify.com/devbox | FORCE=1 DEVBOX_VERSION="${DEVBOX_VERSION}" bash -s -- -f
 fi
 
 # The Jetify installer sets devbox to rwx--x--x (751). Ensure it is world-readable
