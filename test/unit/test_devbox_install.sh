@@ -295,6 +295,7 @@ TEST_BIN=$(new_tmp)
 WS=$(new_tmp)
 TEST_HOME=$(new_tmp)
 CI_LOG="${TEST_BIN}/ci_env.log"
+ONCREATE_OUT="${TEST_BIN}/oncreate_out.log"
 printf '{"packages":[]}' >"${WS}/devbox.json"
 # Mock records the CI value when called as 'install', exits 1 if CI != "1".
 cat >"${TEST_BIN}/devbox" <<EOF
@@ -310,13 +311,16 @@ echo "mock devbox \$*"
 EOF
 chmod +x "${TEST_BIN}/devbox"
 HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
-	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
-grep -q "devbox install complete" \
-	<(HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
-		bash "${ONCREATE_SCRIPT}" 2>/dev/null) &&
-	pass "on-create: CI=1 set when calling devbox install" ||
-	fail "on-create: CI=1 set when calling devbox install" \
+	bash "${ONCREATE_SCRIPT}" >"${ONCREATE_OUT}" 2>&1
+# Verify both: CI=1 reached the mock AND devbox install completed successfully.
+grep -q "^1$" "${CI_LOG}" &&
+	pass "on-create: CI=1 passed to devbox install (verified via CI log)" ||
+	fail "on-create: CI=1 passed to devbox install (verified via CI log)" \
 		"CI log: $(cat "${CI_LOG}" 2>/dev/null || echo '(empty)')"
+grep -q "devbox install complete" "${ONCREATE_OUT}" &&
+	pass "on-create: devbox install completed with CI=1" ||
+	fail "on-create: devbox install completed with CI=1" \
+		"output: $(cat "${ONCREATE_OUT}" 2>/dev/null)"
 
 # 9. devbox install is NOT called when devbox.json is absent
 TEST_BIN=$(new_tmp)
