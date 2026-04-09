@@ -1,6 +1,6 @@
 {
   "id": "supabase-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Supabase CLI",
   "description": "Installs the Supabase CLI. Docker is required at runtime for 'supabase start' (add docker-in-docker or docker-outside-of-docker for local services) but is NOT required to install the CLI. Pre-pulls Supabase Docker images on first container start via postStartCommand when Docker is available.",
   "options": {

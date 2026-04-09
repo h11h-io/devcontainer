@@ -1,6 +1,6 @@
 {
   "id": "project-setup",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Project Setup",
   "description": "Runs project setup tasks on container creation: auto-detected package manager install for Node subdirectories, uv sync for Python subdirectories, copies .env example files, runs lefthook install, and runs direnv allow. Tools must already be available in the container.",
   "options": {
