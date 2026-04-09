@@ -1,6 +1,6 @@
 {
   "id": "coder",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Coder CLI",
   "description": "Installs the Coder CLI (https://coder.com). Used to interact with Coder workspaces, including authenticating and managing workspace lifecycle from within a devcontainer.",
   "options": {

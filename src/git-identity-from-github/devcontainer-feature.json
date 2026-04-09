@@ -1,6 +1,6 @@
 {
   "id": "git-identity-from-github",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Git Identity from GitHub",
   "description": "Automatically sets git user.name and user.email from the authenticated GitHub account at container start time. Works with GitHub Codespaces (GITHUB_TOKEN), Coder (external auth), and gh CLI.",
   "options": {
