@@ -547,6 +547,7 @@ rm -f "${PATCHED_POSTSTART}"
 # 19. post-start starts nix-daemon when binary is present and not running
 TEST_BIN=$(new_tmp)
 DAEMON_LOG=$(mktemp)
+PGREP_STATE="${TEST_BIN}/.pgrep_state"
 # Fake nix-daemon binary that records invocation and exits immediately
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
@@ -554,9 +555,14 @@ echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
 exit 0
 EOF
 chmod +x "${TEST_BIN}/nix-daemon"
-# Fake pgrep that always says not running
-cat >"${TEST_BIN}/pgrep" <<'EOF'
+# Fake pgrep: first call says not running (pre-check), second call says running (verification)
+cat >"${TEST_BIN}/pgrep" <<EOF
 #!/bin/sh
+if [ -f "${PGREP_STATE}" ]; then
+	echo "12345"
+	exit 0
+fi
+touch "${PGREP_STATE}"
 exit 1
 EOF
 chmod +x "${TEST_BIN}/pgrep"
@@ -566,6 +572,18 @@ cat >"${TEST_BIN}/id" <<'EOF'
 echo "0"
 EOF
 chmod +x "${TEST_BIN}/id"
+# Fake sleep to avoid delay in tests
+cat >"${TEST_BIN}/sleep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "${TEST_BIN}/sleep"
+# Fake head (used in pgrep pipeline)
+cat >"${TEST_BIN}/head" <<'EOF'
+#!/bin/sh
+exec /usr/bin/head "$@"
+EOF
+chmod +x "${TEST_BIN}/head"
 # Patch the binary path to point at our fake binary
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
@@ -577,7 +595,7 @@ grep -q "mock nix-daemon" "${DAEMON_LOG}" &&
 	pass "post-start: starts nix-daemon when binary present and not running" ||
 	fail "post-start: starts nix-daemon when binary present and not running" \
 		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)"
-rm -f "${DAEMON_LOG}"
+rm -f "${DAEMON_LOG}" "${PGREP_STATE}"
 
 # 20. post-start skips starting nix-daemon when it is already running
 TEST_BIN=$(new_tmp)
@@ -649,18 +667,25 @@ grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
 	pass "post-start: skips nix-daemon start when non-root without sudo"
 rm -f "${DAEMON_LOG}"
 
-# 22. post-start uses sudo to start nix-daemon when running as non-root with sudo
+# 22. post-start uses sudo -n to start nix-daemon when running as non-root with sudo
 TEST_BIN=$(new_tmp)
 DAEMON_LOG=$(mktemp)
 SUDO_LOG=$(mktemp)
+PGREP_STATE="${TEST_BIN}/.pgrep_state"
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
 echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
 exit 0
 EOF
 chmod +x "${TEST_BIN}/nix-daemon"
-cat >"${TEST_BIN}/pgrep" <<'EOF'
+# Fake pgrep: first call says not running (pre-check), second call says running (verification)
+cat >"${TEST_BIN}/pgrep" <<EOF
 #!/bin/sh
+if [ -f "${PGREP_STATE}" ]; then
+	echo "12345"
+	exit 0
+fi
+touch "${PGREP_STATE}"
 exit 1
 EOF
 chmod +x "${TEST_BIN}/pgrep"
@@ -670,10 +695,23 @@ cat >"${TEST_BIN}/id" <<'EOF'
 echo "1000"
 EOF
 chmod +x "${TEST_BIN}/id"
+# Fake sleep to avoid delay in tests
+cat >"${TEST_BIN}/sleep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "${TEST_BIN}/sleep"
+# Fake head (used in pgrep pipeline)
+cat >"${TEST_BIN}/head" <<'EOF'
+#!/bin/sh
+exec /usr/bin/head "$@"
+EOF
+chmod +x "${TEST_BIN}/head"
 # Fake sudo that records invocation and executes the command
 cat >"${TEST_BIN}/mock-sudo" <<EOF
 #!/bin/sh
 echo "sudo \$*" >> "${SUDO_LOG}"
+shift  # skip -n flag
 exec "\$@"
 EOF
 chmod +x "${TEST_BIN}/mock-sudo"
@@ -695,7 +733,11 @@ grep -q "sudo" "${SUDO_LOG}" &&
 	pass "post-start: sudo was invoked for nix-daemon" ||
 	fail "post-start: sudo was invoked for nix-daemon" \
 		"sudo log: $(cat "${SUDO_LOG}" 2>/dev/null)"
-rm -f "${DAEMON_LOG}" "${SUDO_LOG}"
+grep -q "\-n" "${SUDO_LOG}" &&
+	pass "post-start: sudo invoked with -n (non-interactive) flag" ||
+	fail "post-start: sudo invoked with -n (non-interactive) flag" \
+		"sudo log: $(cat "${SUDO_LOG}" 2>/dev/null)"
+rm -f "${DAEMON_LOG}" "${SUDO_LOG}" "${PGREP_STATE}"
 
 # 23. install.sh installs devbox-post-start helper
 TEST_BIN=$(new_tmp)
