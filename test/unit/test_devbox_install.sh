@@ -612,7 +612,7 @@ grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
 	pass "post-start: skips nix-daemon start when already running"
 rm -f "${DAEMON_LOG}"
 
-# 21. post-start exits 0 and skips when running as non-root
+# 21. post-start exits 0 and skips when running as non-root without sudo
 TEST_BIN=$(new_tmp)
 DAEMON_LOG=$(mktemp)
 cat >"${TEST_BIN}/nix-daemon" <<EOF
@@ -632,22 +632,72 @@ cat >"${TEST_BIN}/id" <<'EOF'
 echo "1000"
 EOF
 chmod +x "${TEST_BIN}/id"
+# Use SUDO_CMD hook to simulate sudo being absent
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
 	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
 chmod +x "${PATCHED_SCRIPT}"
-HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+HOME=$(new_tmp) SUDO_CMD=__no_sudo_here__ PATH="${TEST_BIN}:${PATH}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
 rm -f "${PATCHED_SCRIPT}"
 [ "${rc}" -eq 0 ] &&
-	pass "post-start: exits 0 when running as non-root" ||
-	fail "post-start: exits 0 when running as non-root" "exit code: ${rc}"
+	pass "post-start: exits 0 when running as non-root without sudo" ||
+	fail "post-start: exits 0 when running as non-root without sudo" "exit code: ${rc}"
 grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
-	fail "post-start: must not start nix-daemon when non-root" \
+	fail "post-start: must not start nix-daemon when non-root without sudo" \
 		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
-	pass "post-start: skips nix-daemon start when non-root"
+	pass "post-start: skips nix-daemon start when non-root without sudo"
 rm -f "${DAEMON_LOG}"
 
-# 22. install.sh installs devbox-post-start helper
+# 22. post-start uses sudo to start nix-daemon when running as non-root with sudo
+TEST_BIN=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+SUDO_LOG=$(mktemp)
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id that reports non-root (uid=1000)
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "1000"
+EOF
+chmod +x "${TEST_BIN}/id"
+# Fake sudo that records invocation and executes the command
+cat >"${TEST_BIN}/mock-sudo" <<EOF
+#!/bin/sh
+echo "sudo \$*" >> "${SUDO_LOG}"
+exec "\$@"
+EOF
+chmod +x "${TEST_BIN}/mock-sudo"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) SUDO_CMD=mock-sudo PATH="${TEST_BIN}:${PATH}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_SCRIPT}"
+[ "${rc}" -eq 0 ] &&
+	pass "post-start: exits 0 when non-root with sudo" ||
+	fail "post-start: exits 0 when non-root with sudo" "exit code: ${rc}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" &&
+	pass "post-start: starts nix-daemon via sudo when non-root" ||
+	fail "post-start: starts nix-daemon via sudo when non-root" \
+		"daemon log: $(cat "${DAEMON_LOG}" 2>/dev/null)"
+grep -q "sudo" "${SUDO_LOG}" &&
+	pass "post-start: sudo was invoked for nix-daemon" ||
+	fail "post-start: sudo was invoked for nix-daemon" \
+		"sudo log: $(cat "${SUDO_LOG}" 2>/dev/null)"
+rm -f "${DAEMON_LOG}" "${SUDO_LOG}"
+
+# 23. install.sh installs devbox-post-start helper
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" >/dev/null 2>&1
