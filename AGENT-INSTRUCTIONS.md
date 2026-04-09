@@ -46,6 +46,7 @@ test/unit/
 4. **BASH_SOURCE guard**: bash scripts with reusable functions use `if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then ... fi` so they can be sourced for testing.
 5. **Idempotency**: all install and lifecycle scripts must be safe to run repeatedly.
 6. **Graceful failures**: runtime scripts (postStartCommand etc.) must never crash the container — warn and exit 0.
+7. **Patch version bump**: whenever a PR includes functional changes to a feature (any change to `install.sh`, helper scripts, or `devcontainer-feature.json` options/hooks), increment the **patch** version (third digit) of that feature's `"version"` field in `devcontainer-feature.json`. Never bump major or minor versions — those are reserved for the developer.
 
 ## Unit Test Pattern
 
