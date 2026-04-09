@@ -242,30 +242,43 @@ grep -q "^install$" "${CALL_LOG}" &&
 	fail "on-create: devbox install called when devbox.json exists" \
 		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
 
-# 8b. devbox install is invoked with stdin redirected from /dev/null so that
-#     fmt.Scanln() (the blocking call in devbox's Nix-install TTY check) returns
-#     immediately, and any subprocess (e.g. the nix-installer binary) also
-#     inherits /dev/null as stdin and cannot block on interactive reads.
-#     We verify that on-create still exits 0 even when the mock devbox reads stdin.
+# 8b. devbox install is invoked with stdin redirected from /dev/null.
+#     We use script(1) to allocate a real PTY so that stdin is a live terminal
+#     for everything that doesn't explicitly redirect it.  The mock 'devbox install'
+#     exits 1 when [ -t 0 ] is true (stdin is a TTY), so if devbox-on-create.sh
+#     forgets the </dev/null redirect the mock will fail and the "complete" message
+#     will be absent.  This test would therefore hang/fail even in non-interactive CI.
 TEST_BIN=$(new_tmp)
 WS=$(new_tmp)
-CAPTURED="${TEST_BIN}/oncreate_stdout.log"
+TEST_HOME=$(new_tmp)
+CAPTURED="${TEST_BIN}/oncreate.log"
 printf '{"packages":[]}' >"${WS}/devbox.json"
-# This mock blocks forever if stdin is a TTY; it must get EOF from /dev/null.
+# Mock exits 1 when stdin is a TTY; passes when stdin is /dev/null (EOF).
 cat >"${TEST_BIN}/devbox" <<'EOF'
 #!/bin/sh
-if [ "$1" = "install" ]; then
-	read -r _line || true  # returns immediately when stdin is /dev/null
+if [ "$1" = "install" ] && [ -t 0 ]; then
+	echo "mock devbox: stdin is a TTY — redirect missing" >&2
+	exit 1
 fi
 echo "mock devbox $*"
 EOF
 chmod +x "${TEST_BIN}/devbox"
-HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
-	bash "${ONCREATE_SCRIPT}" >"${CAPTURED}" 2>&1 && rc=0 || rc=$?
-[ "${rc}" -eq 0 ] &&
-	pass "on-create: exits 0 with devbox install stdin redirected from /dev/null" ||
-	fail "on-create: exits 0 with devbox install stdin redirected from /dev/null" \
-		"exit code: ${rc}"
+# Wrapper script so env vars are set cleanly inside the PTY.
+WRAPPER="${TEST_BIN}/run-oncreate.sh"
+cat >"${WRAPPER}" <<EOF
+#!/bin/sh
+export HOME="${TEST_HOME}"
+export PATH="${TEST_BIN}:${PATH}"
+export containerWorkspaceFolder="${WS}"
+exec bash "${ONCREATE_SCRIPT}"
+EOF
+chmod +x "${WRAPPER}"
+# Run under a PTY; transcript (PTY output) goes to CAPTURED.
+script -q -e -c "${WRAPPER}" "${CAPTURED}" >/dev/null 2>&1 && rc=0 || rc=$?
+grep -q "devbox install complete" "${CAPTURED}" &&
+	pass "on-create: stdin redirected from /dev/null (verified under PTY)" ||
+	fail "on-create: stdin redirected from /dev/null (verified under PTY)" \
+		"exit code: ${rc}, output: $(tr -d '\r' <"${CAPTURED}" 2>/dev/null)"
 
 # 9. devbox install is NOT called when devbox.json is absent
 TEST_BIN=$(new_tmp)

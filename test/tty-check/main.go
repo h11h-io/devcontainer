@@ -23,18 +23,15 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"golang.org/x/term"
 )
 
 // stdoutIsTerminal replicates devbox's isatty.IsTerminal(os.Stdout.Fd()).
-// Uses os.Stdout.Stat() so it works with the Go stdlib only (no cgo or
-// external packages needed for this verification tool).
+// Uses golang.org/x/term so that non-terminal character devices such as
+// /dev/null are not misreported as interactive terminals.
 func stdoutIsTerminal() bool {
-	fi, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-	// ModeCharDevice is set for TTYs; pipes and regular files do NOT have it.
-	return fi.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 func main() {
