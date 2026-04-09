@@ -207,6 +207,14 @@ grep -q "^version$" "${TEST_BIN}/devbox_calls.log" &&
 	pass "install: devbox version called after install" ||
 	fail "install: devbox version called after install" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")"
 
+# 7b. install.sh emits a git-commit identifier line (for tracing the published artifact)
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+OUT=$(PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" sh "$INSTALL_SCRIPT" 2>&1)
+echo "$OUT" | grep -q "git commit" &&
+	pass "install: emits git commit identifier line" ||
+	fail "install: emits git commit identifier line" "output: $OUT"
+
 # 8. install.sh installs devbox-on-create helper
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
@@ -242,7 +250,7 @@ grep -q "^install$" "${CALL_LOG}" &&
 	fail "on-create: devbox install called when devbox.json exists" \
 		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
 
-# 8b. devbox install is invoked with stdin redirected from /dev/null.
+# 8b. devbox install is invoked with stdin redirected from /dev/null AND CI=1 set.
 #     We use script(1) to allocate a real PTY so that stdin is a live terminal
 #     for everything that doesn't explicitly redirect it.  The mock 'devbox install'
 #     exits 1 when [ -t 0 ] is true (stdin is a TTY), so if devbox-on-create.sh
@@ -279,6 +287,36 @@ grep -q "devbox install complete" "${CAPTURED}" &&
 	pass "on-create: stdin redirected from /dev/null (verified under PTY)" ||
 	fail "on-create: stdin redirected from /dev/null (verified under PTY)" \
 		"exit code: ${rc}, output: $(tr -d '\r' <"${CAPTURED}" 2>/dev/null)"
+
+# 8c. devbox install is invoked with CI=1 in the environment.
+#     This is the primary guard against interactive Nix install prompts — devbox
+#     detects CI=1 and suppresses all confirmation prompts regardless of TTY state.
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+TEST_HOME=$(new_tmp)
+CI_LOG="${TEST_BIN}/ci_env.log"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Mock records the CI value when called as 'install', exits 1 if CI != "1".
+cat >"${TEST_BIN}/devbox" <<EOF
+#!/bin/sh
+if [ "\${1:-}" = "install" ]; then
+	echo "\${CI:-unset}" >> "${CI_LOG}"
+	if [ "\${CI:-}" != "1" ]; then
+		echo "mock devbox: CI is not 1 (got: '\${CI:-unset}')" >&2
+		exit 1
+	fi
+fi
+echo "mock devbox \$*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+grep -q "devbox install complete" \
+	<(HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+		bash "${ONCREATE_SCRIPT}" 2>/dev/null) &&
+	pass "on-create: CI=1 set when calling devbox install" ||
+	fail "on-create: CI=1 set when calling devbox install" \
+		"CI log: $(cat "${CI_LOG}" 2>/dev/null || echo '(empty)')"
 
 # 9. devbox install is NOT called when devbox.json is absent
 TEST_BIN=$(new_tmp)

@@ -11,6 +11,8 @@ REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
 MARKER_BEGIN="# >> userspace-pkg-homes config >>"
 MARKER_END="# << userspace-pkg-homes config <<"
 
+echo "userspace-pkg-homes: install.sh (built from git commit: @GIT_SHA@)"
+
 # build_config_block assembles the shell snippet to inject into rc files.
 build_config_block() {
 	local exports=""

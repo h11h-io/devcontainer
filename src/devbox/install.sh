@@ -3,6 +3,8 @@ set -e
 
 DEVBOX_VERSION="${VERSION:-latest}"
 
+echo "devbox: install.sh (built from git commit: @GIT_SHA@)"
+
 # Ensure curl is available
 if ! command -v curl >/dev/null 2>&1; then
 	echo "devbox: installing curl..."

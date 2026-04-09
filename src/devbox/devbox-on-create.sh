@@ -33,18 +33,21 @@ add_to_shell() {
 
 if [ -f "${WORKSPACE}/devbox.json" ]; then
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."
-	# Redirect stdin from /dev/null so that every process in this command
-	# (devbox itself and the nix-installer subprocess it spawns) receives EOF
-	# on stdin instead of blocking on a TTY.
+	# Run devbox install in fully non-interactive mode.
 	#
-	# Devbox gates its "Press enter to continue" prompt on
-	# isatty.IsTerminal(os.Stdout.Fd()), then calls fmt.Scanln() which reads
-	# from os.Stdin.  Redirecting stdin to /dev/null makes that Scanln return
-	# immediately with EOF, so devbox never hangs — even if stdout is still a
-	# TTY.  More importantly, the nix-installer binary that devbox spawns
-	# (cmd.Stdin = os.Stdin in nix/install.go) also inherits /dev/null as
-	# stdin, preventing it from blocking on any interactive reads of its own.
-	if (cd "${WORKSPACE}" && devbox install </dev/null); then
+	# Two complementary guards:
+	#
+	# 1. CI=1  — the official environment variable that devbox (and the
+	#    determinate-systems nix-installer it invokes) checks to suppress all
+	#    interactive prompts and confirmations.  When CI=1 devbox prints
+	#    plain-text progress instead of blocking on "Press Enter to continue".
+	#
+	# 2. </dev/null — belt-and-suspenders stdin redirect.  Any remaining
+	#    fmt.Scanln / bufio.ReadByte call receives EOF immediately rather than
+	#    blocking on a TTY.  The nix-installer subprocess that devbox spawns
+	#    (cmd.Stdin = os.Stdin in nix/install.go) also inherits /dev/null,
+	#    preventing it from blocking on any interactive reads of its own.
+	if (cd "${WORKSPACE}" && CI=1 devbox install </dev/null); then
 		echo "devbox-on-create: devbox install complete."
 	else
 		echo "devbox-on-create: warning: devbox install failed; continuing so the container can start. Retry manually with 'cd ${WORKSPACE} && devbox install'."

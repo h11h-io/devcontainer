@@ -3,6 +3,8 @@ set -e
 
 OVERWRITE="${OVERWRITE:-false}"
 
+echo "git-identity-from-github: install.sh (built from git commit: @GIT_SHA@)"
+
 # Ensure curl and jq are available (typically pre-installed on devcontainer base images)
 if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
 	echo "configure-git-identity: installing curl and jq..."
