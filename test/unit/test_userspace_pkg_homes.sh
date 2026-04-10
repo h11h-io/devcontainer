@@ -281,4 +281,9 @@ count=$(grep -cF '# >> userspace-pkg-homes config >>' "${TEST_PROF_GLOBAL}/users
 	pass "e2e: global profile.d idempotent (single block after double run)" ||
 	fail "e2e: global profile.d idempotent (single block after double run)" "found ${count} blocks"
 
+# ── 22. ensure_zshrc_d uses null-glob (N) qualifier ─────────────────────────
+grep -q '(N)' "${TEST_GLOBAL_ZSHRC_E2E}" &&
+	pass "ensure_zshrc_d: sourcing loop uses null-glob (N) qualifier" ||
+	fail "ensure_zshrc_d: sourcing loop uses null-glob (N) qualifier" "$(cat "${TEST_GLOBAL_ZSHRC_E2E}" 2>/dev/null)"
+
 summary

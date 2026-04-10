@@ -117,7 +117,7 @@ ensure_zshrc_d() {
 	fi
 	local marker='# h11h-io: source /etc/zsh/zshrc.d'
 	if ! grep -qF "${marker}" "${GLOBAL_ZSHRC}"; then
-		printf '\n%s\nfor _h11h_f in %s/*.zsh; do [ -r "$_h11h_f" ] && . "$_h11h_f"; done; unset _h11h_f\n' \
+		printf '\n%s\nfor _h11h_f in %s/*.zsh(N); do [ -r "$_h11h_f" ] && . "$_h11h_f"; done; unset _h11h_f\n' \
 			"${marker}" "${ZSHRC_D_DIR}" >>"${GLOBAL_ZSHRC}"
 	fi
 }

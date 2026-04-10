@@ -401,4 +401,19 @@ grep -q '/workspaces/\*' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	pass "write_global_zshrc: includes /workspaces fallback for relative extraRcFile" ||
 	fail "write_global_zshrc: includes /workspaces fallback for relative extraRcFile" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
 
+# 38. ensure_zshrc_d uses null-glob (N) qualifier to avoid NOMATCH errors in zsh
+grep -q '(N)' "${TEST_GLOBAL_ZSHRC}" &&
+	pass "ensure_zshrc_d: sourcing loop uses null-glob (N) qualifier" ||
+	fail "ensure_zshrc_d: sourcing loop uses null-glob (N) qualifier" "$(cat "${TEST_GLOBAL_ZSHRC}" 2>/dev/null)"
+
+# 39. write_global_zshrc guards source with [[ -d "$ZSH" ]] existence check
+grep -q '\[\[ -d "\$ZSH" \]\]' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
+	pass "write_global_zshrc: guards source with [[ -d \"\$ZSH\" ]] existence check" ||
+	fail "write_global_zshrc: guards source with [[ -d \"\$ZSH\" ]] existence check" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
+
+# 40. write_global_zshrc does NOT emit bare unguarded source line
+grep -qE '^source "\$ZSH/oh-my-zsh.sh"' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null &&
+	fail "write_global_zshrc: must not emit bare unguarded source line" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)" ||
+	pass "write_global_zshrc: no bare unguarded source line"
+
 summary

@@ -147,7 +147,7 @@ ensure_zshrc_d() {
 	fi
 	local marker='# h11h-io: source /etc/zsh/zshrc.d'
 	if ! grep -qF "${marker}" "${GLOBAL_ZSHRC}"; then
-		printf '\n%s\nfor _h11h_f in %s/*.zsh; do [ -r "$_h11h_f" ] && . "$_h11h_f"; done; unset _h11h_f\n' \
+		printf '\n%s\nfor _h11h_f in %s/*.zsh(N); do [ -r "$_h11h_f" ] && . "$_h11h_f"; done; unset _h11h_f\n' \
 			"${marker}" "${ZSHRC_D_DIR}" >>"${GLOBAL_ZSHRC}"
 	fi
 }
@@ -175,7 +175,11 @@ write_global_zshrc() {
 		if [ -n "${AUTOSUGGESTSTRATEGY}" ]; then
 			printf 'ZSH_AUTOSUGGEST_STRATEGY=(%s)\n' "${AUTOSUGGESTSTRATEGY}"
 		fi
-		printf 'source "$ZSH/oh-my-zsh.sh"\n'
+		printf 'if [[ -d "$ZSH" ]]; then\n'
+		printf '\tsource "$ZSH/oh-my-zsh.sh"\n'
+		printf 'else\n'
+		printf '\techo "oh-my-zsh: WARNING: OMZ dir not found ('"'"'$ZSH'"'"'), skipping." >&2\n'
+		printf 'fi\n'
 		if [ -n "${EXTRARCFILE}" ]; then
 			case "${EXTRARCFILE}" in
 			*..*) echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains '..'; ignoring." >&2 ;;
