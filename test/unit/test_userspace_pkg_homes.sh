@@ -188,10 +188,16 @@ echo "$block" | grep -q '\${NPM_CONFIG_PREFIX}/bin' &&
 
 # ── 14. Full end-to-end: script configures both bashrc and zshrc ─────────────
 TEST_HOME=$(new_tmp)
+TEST_PROF=$(new_tmp)/profile.d
+TEST_ZSHRC_D=$(new_tmp)/zshrc.d
+TEST_GLOBAL_ZSHRC=$(new_tmp)/zshrc
 REMOTE_USER_HOME="${TEST_HOME}" REMOTE_USER="root" \
 	CONFIGURE_PNPM="true" CONFIGURE_PIPX="true" CONFIGURE_NPM="true" \
 	_REMOTE_USER="root" _REMOTE_USER_HOME="${TEST_HOME}" \
 	CONFIGUREPNPM="true" CONFIGUREPIPX="true" CONFIGURENPM="true" \
+	PROFILE_D_DIR="${TEST_PROF}" \
+	ZSHRC_D_DIR="${TEST_ZSHRC_D}" \
+	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC}" \
 	bash "$INSTALL_SCRIPT"
 grep -qF 'PNPM_HOME' "${TEST_HOME}/.bashrc" &&
 	pass "e2e: .bashrc has PNPM_HOME" ||
@@ -218,5 +224,61 @@ out=$(REMOTE_USER_HOME="${TEST_HOME}" REMOTE_USER="root" \
 echo "$out" | grep -q "nothing to configure" &&
 	pass "e2e (none): prints 'nothing to configure'" ||
 	fail "e2e (none): prints 'nothing to configure'" "output: $out"
+
+# ── 16. ensure_zshrc_d creates the zshrc.d directory ────────────────────────
+TEST_ZSHRC_D=$(new_tmp)/zshrc.d
+TEST_GLOBAL_ZSHRC=$(new_tmp)/zshrc
+ZSHRC_D_DIR="${TEST_ZSHRC_D}" GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC}" \
+	ensure_zshrc_d
+test -d "${TEST_ZSHRC_D}" &&
+	pass "ensure_zshrc_d: creates zshrc.d directory" ||
+	fail "ensure_zshrc_d: creates zshrc.d directory" "directory not found"
+
+# ── 17. ensure_zshrc_d appends sourcing loop to global zshrc ────────────────
+grep -q "${TEST_ZSHRC_D}" "${TEST_GLOBAL_ZSHRC}" &&
+	pass "ensure_zshrc_d: appends zshrc.d sourcing loop to global zshrc" ||
+	fail "ensure_zshrc_d: appends zshrc.d sourcing loop to global zshrc" "$(cat "${TEST_GLOBAL_ZSHRC}" 2>/dev/null)"
+
+# ── 18. ensure_zshrc_d is idempotent ────────────────────────────────────────
+ZSHRC_D_DIR="${TEST_ZSHRC_D}" GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC}" \
+	ensure_zshrc_d
+count=$(grep -c 'h11h-io: source' "${TEST_GLOBAL_ZSHRC}" || true)
+[ "${count}" -eq 1 ] &&
+	pass "ensure_zshrc_d: idempotent (single sourcing loop after double call)" ||
+	fail "ensure_zshrc_d: idempotent (single sourcing loop after double call)" "found ${count} markers"
+
+# ── 19. e2e: global profile.d file written ───────────────────────────────────
+TEST_HOME=$(new_tmp)
+TEST_PROF=$(new_tmp)/profile.d
+TEST_ZSHRC_D2=$(new_tmp)/zshrc.d
+TEST_GLOBAL_ZSHRC2=$(new_tmp)/zshrc
+REMOTE_USER_HOME="${TEST_HOME}" REMOTE_USER="root" \
+	_REMOTE_USER="root" _REMOTE_USER_HOME="${TEST_HOME}" \
+	CONFIGUREPNPM="true" CONFIGUREPIPX="false" CONFIGURENPM="false" \
+	PROFILE_D_DIR="${TEST_PROF}" \
+	ZSHRC_D_DIR="${TEST_ZSHRC_D2}" \
+	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC2}" \
+	bash "$INSTALL_SCRIPT"
+grep -qF 'PNPM_HOME' "${TEST_PROF}/userspace-pkg-homes.sh" &&
+	pass "e2e: global profile.d file has PNPM_HOME" ||
+	fail "e2e: global profile.d file has PNPM_HOME" "$(cat "${TEST_PROF}/userspace-pkg-homes.sh" 2>/dev/null)"
+
+# ── 20. e2e: global zshrc.d file written ─────────────────────────────────────
+grep -qF 'PNPM_HOME' "${TEST_ZSHRC_D2}/userspace-pkg-homes.zsh" &&
+	pass "e2e: global zshrc.d file has PNPM_HOME" ||
+	fail "e2e: global zshrc.d file has PNPM_HOME" "$(cat "${TEST_ZSHRC_D2}/userspace-pkg-homes.zsh" 2>/dev/null)"
+
+# ── 21. e2e: global profile.d is idempotent (no duplicate blocks) ────────────
+REMOTE_USER_HOME="${TEST_HOME}" REMOTE_USER="root" \
+	_REMOTE_USER="root" _REMOTE_USER_HOME="${TEST_HOME}" \
+	CONFIGUREPNPM="true" CONFIGUREPIPX="false" CONFIGURENPM="false" \
+	PROFILE_D_DIR="${TEST_PROF}" \
+	ZSHRC_D_DIR="${TEST_ZSHRC_D2}" \
+	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC2}" \
+	bash "$INSTALL_SCRIPT"
+count=$(grep -cF '# >> userspace-pkg-homes config >>' "${TEST_PROF}/userspace-pkg-homes.sh" || true)
+[ "${count}" -eq 1 ] &&
+	pass "e2e: global profile.d idempotent (single block after double run)" ||
+	fail "e2e: global profile.d idempotent (single block after double run)" "found ${count} blocks"
 
 summary

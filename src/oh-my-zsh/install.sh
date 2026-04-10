@@ -9,6 +9,14 @@ AUTOSUGGESTSTRATEGY="${AUTOSUGGESTSTRATEGY:-}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
 
+# Install oh-my-zsh to a global, non-home location so it survives runtime home mounts
+# (e.g. Coder/envbuilder workspaces that mount a fresh home over the image filesystem).
+OMZ_DIR="${OMZ_DIR:-/usr/local/share/oh-my-zsh}"
+
+# Testability hooks — override these in unit tests to use temp paths
+ZSHRC_D_DIR="${ZSHRC_D_DIR:-/etc/zsh/zshrc.d}"
+GLOBAL_ZSHRC="${GLOBAL_ZSHRC:-/etc/zsh/zshrc}"
+
 echo "oh-my-zsh: install.sh (built from git commit: @GIT_SHA@)"
 
 # Returns the git clone URL for a known external plugin, or empty string for built-in plugins.
@@ -38,21 +46,20 @@ install_deps() {
 }
 
 install_omz() {
-	local omz_dir="${REMOTE_USER_HOME}/.oh-my-zsh"
-	if [ -d "${omz_dir}" ]; then
-		echo "oh-my-zsh: already installed at ${omz_dir}, skipping."
+	if [ -d "${OMZ_DIR}" ]; then
+		echo "oh-my-zsh: already installed at ${OMZ_DIR}, skipping."
 		return 0
 	fi
-	echo "oh-my-zsh: installing to ${omz_dir}..."
+	echo "oh-my-zsh: installing to ${OMZ_DIR}..."
 	if ! curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh |
-		ZSH="${omz_dir}" HOME="${REMOTE_USER_HOME}" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+		ZSH="${OMZ_DIR}" HOME="${REMOTE_USER_HOME}" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
 			sh -s --; then
-		echo "oh-my-zsh: WARNING: installation failed (network issue?). .zshrc will be written but OMZ won't be available." >&2
+		echo "oh-my-zsh: WARNING: installation failed (network issue?). Config will be written but OMZ won't be available." >&2
 	fi
 }
 
 install_external_plugins() {
-	local plugins_dir="${REMOTE_USER_HOME}/.oh-my-zsh/custom/plugins"
+	local plugins_dir="${OMZ_DIR}/custom/plugins"
 	mkdir -p "${plugins_dir}"
 	local plugin url
 	for plugin in ${PLUGINS}; do
@@ -80,9 +87,14 @@ write_zshrc() {
 		echo "oh-my-zsh: backed up existing .zshrc to ${zshrc}.bak"
 	fi
 
+	# This file is a convenience that makes customisation easy in environments
+	# where the user home survives (e.g. Codespaces). It is NOT the primary
+	# activation path — the global /etc/zsh/zshrc.d/oh-my-zsh.zsh handles that.
 	{
 		printf '# managed by oh-my-zsh devcontainer feature\n'
-		printf 'export ZSH="$HOME/.oh-my-zsh"\n'
+		printf '[[ -n "${_H11H_OMZ_LOADED:-}" ]] && return 0\n'
+		printf 'export _H11H_OMZ_LOADED=1\n'
+		printf 'export ZSH="%s"\n' "${OMZ_DIR}"
 		printf 'ZSH_THEME="%s"\n' "${THEME}"
 		printf 'plugins=(%s)\n' "${plugin_list}"
 		printf 'source "$ZSH/oh-my-zsh.sh"\n'
@@ -115,6 +127,65 @@ write_zshrc() {
 	[ "${REMOTE_USER}" != "root" ] && chown "${REMOTE_USER}:" "${zshrc}" 2>/dev/null || true
 }
 
+# ensure_zshrc_d creates /etc/zsh/zshrc.d and ensures /etc/zsh/zshrc sources it.
+# This is the global activation path that works regardless of whether the user
+# home directory is mounted over the image (e.g. Coder/envbuilder workspaces).
+ensure_zshrc_d() {
+	mkdir -p "${ZSHRC_D_DIR}"
+	if [ ! -f "${GLOBAL_ZSHRC}" ]; then
+		mkdir -p "$(dirname "${GLOBAL_ZSHRC}")"
+		touch "${GLOBAL_ZSHRC}"
+	fi
+	local marker='# h11h-io: source /etc/zsh/zshrc.d'
+	if ! grep -qF "${marker}" "${GLOBAL_ZSHRC}"; then
+		printf '\n%s\nfor _h11h_f in %s/*.zsh; do [ -r "$_h11h_f" ] && . "$_h11h_f"; done; unset _h11h_f\n' \
+			"${marker}" "${ZSHRC_D_DIR}" >>"${GLOBAL_ZSHRC}"
+	fi
+}
+
+# write_global_zshrc writes the primary oh-my-zsh activation snippet to
+# /etc/zsh/zshrc.d/oh-my-zsh.zsh.  It is guarded against double-loading so
+# that if the user also has a ~/.zshrc that sources oh-my-zsh the framework is
+# only initialised once.
+write_global_zshrc() {
+	local plugin_list
+	plugin_list=$(printf '%s' "${PLUGINS}" | tr ',' ' ' | tr -s ' ')
+	local outfile="${ZSHRC_D_DIR}/oh-my-zsh.zsh"
+
+	{
+		printf '# oh-my-zsh devcontainer feature — global config\n'
+		printf '# Skip if already loaded (e.g. user'"'"'s ~/.zshrc also sources oh-my-zsh)\n'
+		printf '[[ -n "${_H11H_OMZ_LOADED:-}" ]] && return 0\n'
+		printf 'export _H11H_OMZ_LOADED=1\n'
+		printf 'export ZSH="%s"\n' "${OMZ_DIR}"
+		printf 'ZSH_THEME="%s"\n' "${THEME}"
+		printf 'plugins=(%s)\n' "${plugin_list}"
+		if [ -n "${AUTOSUGGESTSTYLE}" ]; then
+			printf 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="%s"\n' "${AUTOSUGGESTSTYLE}"
+		fi
+		if [ -n "${AUTOSUGGESTSTRATEGY}" ]; then
+			printf 'ZSH_AUTOSUGGEST_STRATEGY=(%s)\n' "${AUTOSUGGESTSTRATEGY}"
+		fi
+		printf 'source "$ZSH/oh-my-zsh.sh"\n'
+		if [ -n "${EXTRARCFILE}" ]; then
+			case "${EXTRARCFILE}" in
+			*..*) echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains '..'; ignoring." >&2 ;;
+			*[!-a-zA-Z0-9_./]*)
+				echo "oh-my-zsh: WARNING: extraRcFile '${EXTRARCFILE}' contains unsafe characters; ignoring." >&2
+				;;
+			/*)
+				printf '[ -f "%s" ] && source "%s"\n' "${EXTRARCFILE}" "${EXTRARCFILE}"
+				;;
+			*)
+				printf 'if [ -n "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}" ] && [ -f "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s" ]; then\n' "${EXTRARCFILE}"
+				printf '\tsource "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s"\n' "${EXTRARCFILE}"
+				printf 'fi\n'
+				;;
+			esac
+		fi
+	} >"${outfile}"
+}
+
 set_default_shell() {
 	local zsh_path
 	zsh_path=$(command -v zsh 2>/dev/null) || return 0
@@ -126,6 +197,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	install_deps
 	install_omz
 	install_external_plugins
+	ensure_zshrc_d
+	write_global_zshrc
 	write_zshrc
 	set_default_shell
 	echo "oh-my-zsh: installation complete for user '${REMOTE_USER}'."
