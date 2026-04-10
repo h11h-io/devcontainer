@@ -17,6 +17,10 @@ set -euo pipefail
 WORKSPACE="${containerWorkspaceFolder:-$PWD}"
 EXPORTGLOBALPROFILE="${EXPORTGLOBALPROFILE:-true}"
 
+NIX_DAEMON_BIN="/nix/var/nix/profiles/default/bin/nix-daemon"
+NIX_DAEMON_SOCKET="/nix/var/nix/daemon-socket/socket"
+NIX_DAEMON_LOG="/tmp/nix-daemon.log"
+
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 # add_to_shell <marker> <content> <file>
@@ -29,9 +33,58 @@ add_to_shell() {
 	printf '\n# BEGIN %s\n%s\n# END %s\n' "$marker" "$content" "$marker" >>"$file"
 }
 
+wait_for_nix_daemon_socket() {
+	local attempts="${1:-30}"
+	local i=0
+
+	while [ "$i" -lt "$attempts" ]; do
+		if [ -S "${NIX_DAEMON_SOCKET}" ]; then
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	return 1
+}
+
+ensure_nix_daemon_ready() {
+	if [ -S "${NIX_DAEMON_SOCKET}" ]; then
+		echo "devbox-on-create: nix-daemon socket already present."
+		return 0
+	fi
+
+	if [ ! -x "${NIX_DAEMON_BIN}" ]; then
+		echo "devbox-on-create: nix-daemon binary not found at ${NIX_DAEMON_BIN}; continuing without daemon start."
+		return 0
+	fi
+
+	if pgrep -x nix-daemon >/dev/null 2>&1; then
+		echo "devbox-on-create: nix-daemon process is running; waiting for socket..."
+	else
+		if [ "$(id -u)" -eq 0 ]; then
+			echo "devbox-on-create: starting nix-daemon (log: ${NIX_DAEMON_LOG})..."
+			"${NIX_DAEMON_BIN}" --daemon &>"${NIX_DAEMON_LOG}" &
+		else
+			echo "devbox-on-create: running as non-root (uid=$(id -u)); cannot start nix-daemon."
+			return 0
+		fi
+	fi
+
+	if wait_for_nix_daemon_socket 30; then
+		echo "devbox-on-create: nix-daemon socket is ready."
+		return 0
+	fi
+
+	echo "devbox-on-create: warning: nix-daemon socket did not appear at ${NIX_DAEMON_SOCKET} within timeout."
+	return 0
+}
+
 # ── devbox install ────────────────────────────────────────────────────────────
 
 if [ -f "${WORKSPACE}/devbox.json" ]; then
+	ensure_nix_daemon_ready
+
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."
 	# Run devbox install in fully non-interactive mode.
 	#
