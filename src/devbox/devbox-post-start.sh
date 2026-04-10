@@ -35,8 +35,12 @@ if [ ! -x "${NIX_DAEMON_BIN}" ]; then
 fi
 
 if [ -S "${NIX_DAEMON_SOCKET}" ]; then
-	echo "devbox-post-start: nix-daemon socket already present; skipping."
-	exit 0
+	if pgrep -x nix-daemon >/dev/null 2>&1; then
+		echo "devbox-post-start: nix-daemon socket already present and daemon is running; skipping."
+		exit 0
+	fi
+	echo "devbox-post-start: nix-daemon socket exists but daemon is not running; removing stale socket."
+	rm -f "${NIX_DAEMON_SOCKET}"
 fi
 
 # nix-daemon in multi-user Nix must be started as root

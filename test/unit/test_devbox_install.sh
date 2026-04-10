@@ -561,8 +561,20 @@ mkdir -p "$(dirname "${SOCKET_PATH}")"
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
 echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
-# Create a mock daemon socket path to satisfy readiness checks
-touch "${SOCKET_PATH}"
+# Create a real Unix-domain socket to satisfy -S readiness checks
+python3 - <<'PY'
+import os
+import socket
+
+socket_path = "${SOCKET_PATH}"
+try:
+	os.unlink(socket_path)
+except FileNotFoundError:
+	pass
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind(socket_path)
+sock.close()
+PY
 exit 0
 EOF
 chmod +x "${TEST_BIN}/nix-daemon"
@@ -597,6 +609,21 @@ DAEMON_LOG=$(mktemp)
 SOCKET_ROOT=$(new_tmp)
 SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
 mkdir -p "$(dirname "${SOCKET_PATH}")"
+# Create a real Unix-domain socket so the early-exit (socket present + pgrep running) fires
+python3 - <<PY &
+import socket
+import time
+
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind("${SOCKET_PATH}")
+sock.listen(1)
+time.sleep(30)
+PY
+# Wait for the background Python process to create the socket before proceeding
+for _ in $(seq 1 50); do
+	[ -S "${SOCKET_PATH}" ] && break
+	sleep 0.1
+done
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
 echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"

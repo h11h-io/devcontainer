@@ -67,6 +67,7 @@ ensure_nix_daemon_ready() {
 			"${NIX_DAEMON_BIN}" --daemon &>"${NIX_DAEMON_LOG}" &
 		else
 			echo "devbox-on-create: running as non-root (uid=$(id -u)); cannot start nix-daemon."
+			return 0
 		fi
 	fi
 
