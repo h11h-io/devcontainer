@@ -382,4 +382,23 @@ grep -q 'plugins=(git kubectl)' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	pass "write_global_zshrc: includes configured plugins" ||
 	fail "write_global_zshrc: includes configured plugins" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
 
+# 36. write_zshrc includes /workspaces fallback for relative extraRcFile
+TEST_HOME=$(new_tmp)
+REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
+	EXTRARCFILE=".devcontainer/zshrc-extras.sh" \
+	write_zshrc
+grep -q '/workspaces/\*' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: includes /workspaces fallback for relative extraRcFile" ||
+	fail "write_zshrc: includes /workspaces fallback for relative extraRcFile" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+
+# 37. write_global_zshrc includes /workspaces fallback for relative extraRcFile
+TEST_ZSHRC_D_GLOBAL=$(new_tmp)/zshrc.d
+mkdir -p "${TEST_ZSHRC_D_GLOBAL}"
+ZSHRC_D_DIR="${TEST_ZSHRC_D_GLOBAL}" PLUGINS="git" THEME="robbyrussell" \
+	EXTRARCFILE=".devcontainer/zshrc-extras.sh" AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" \
+	write_global_zshrc
+grep -q '/workspaces/\*' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
+	pass "write_global_zshrc: includes /workspaces fallback for relative extraRcFile" ||
+	fail "write_global_zshrc: includes /workspaces fallback for relative extraRcFile" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
+
 summary

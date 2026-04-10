@@ -115,9 +115,18 @@ write_zshrc() {
 				printf '[ -f "%s" ] && source "%s"\n' "${EXTRARCFILE}" "${EXTRARCFILE}"
 				;;
 			*)
-				# Workspace-relative path — resolved at runtime when the workspace is mounted
+				# Workspace-relative path — resolve with env vars when available,
+				# then fall back to scanning /workspaces/* for single-workspace runtimes.
 				printf 'if [ -n "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}" ] && [ -f "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s" ]; then\n' "${EXTRARCFILE}"
 				printf '\tsource "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s"\n' "${EXTRARCFILE}"
+				printf 'else\n'
+				printf '\tfor _h11h_ws in /workspaces/*; do\n'
+				printf '\t\tif [ -f "$_h11h_ws/%s" ]; then\n' "${EXTRARCFILE}"
+				printf '\t\t\tsource "$_h11h_ws/%s"\n' "${EXTRARCFILE}"
+				printf '\t\t\tbreak\n'
+				printf '\t\tfi\n'
+				printf '\tdone\n'
+				printf '\tunset _h11h_ws\n'
 				printf 'fi\n'
 				;;
 			esac
@@ -179,6 +188,14 @@ write_global_zshrc() {
 			*)
 				printf 'if [ -n "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}" ] && [ -f "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s" ]; then\n' "${EXTRARCFILE}"
 				printf '\tsource "${WORKSPACE_FOLDER:-${_CONTAINER_WORKSPACE_FOLDER:-}}/%s"\n' "${EXTRARCFILE}"
+				printf 'else\n'
+				printf '\tfor _h11h_ws in /workspaces/*; do\n'
+				printf '\t\tif [ -f "$_h11h_ws/%s" ]; then\n' "${EXTRARCFILE}"
+				printf '\t\t\tsource "$_h11h_ws/%s"\n' "${EXTRARCFILE}"
+				printf '\t\t\tbreak\n'
+				printf '\t\tfi\n'
+				printf '\tdone\n'
+				printf '\tunset _h11h_ws\n'
 				printf 'fi\n'
 				;;
 			esac
