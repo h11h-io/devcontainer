@@ -164,23 +164,22 @@ grep -q "clone" "${CLONE_LOG2}" 2>/dev/null &&
 	fail "install_external_plugins: must not clone already-present plugin" "git log: $(cat "${CLONE_LOG2}" 2>/dev/null)" ||
 	pass "install_external_plugins: skips already-installed plugin"
 
-# 13. write_zshrc produces exactly 7 standard lines when no extras are configured
+# 13. write_zshrc produces exactly 6 standard lines when no extras are configured
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
 	EXTRARCFILE="" \
 	write_zshrc
-# Exactly 7 standard lines should be present:
+# Exactly 6 standard lines should be present:
 #   1. # managed by oh-my-zsh devcontainer feature
-#   2. [[ -n "${_H11H_OMZ_LOADED:-}" ]] && return 0
-#   3. export _H11H_OMZ_LOADED=1
-#   4. export ZSH="<OMZ_DIR>"
-#   5. ZSH_THEME="robbyrussell"
-#   6. plugins=(git)
-#   7. source "$ZSH/oh-my-zsh.sh"
+#   2. (( ${+functions[omz]} )) && return 0
+#   3. export ZSH="<OMZ_DIR>"
+#   4. ZSH_THEME="robbyrussell"
+#   5. plugins=(git)
+#   6. source "$ZSH/oh-my-zsh.sh"
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
-[ "${LINE_COUNT}" -eq 7 ] &&
-	pass "write_zshrc: exactly 7 standard lines when no extras configured" ||
-	fail "write_zshrc: exactly 7 standard lines when no extras configured" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+[ "${LINE_COUNT}" -eq 6 ] &&
+	pass "write_zshrc: exactly 6 standard lines when no extras configured" ||
+	fail "write_zshrc: exactly 6 standard lines when no extras configured" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
 # 14. write_zshrc appends ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE when autosuggestStyle is set
 TEST_HOME=$(new_tmp)
@@ -273,7 +272,7 @@ REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="ro
 	EXTRARCFILE="" \
 	write_zshrc
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
-[ "${LINE_COUNT}" -eq 7 ] &&
+[ "${LINE_COUNT}" -eq 6 ] &&
 	pass "write_zshrc: no extra lines when EXTRARCFILE is empty" ||
 	fail "write_zshrc: no extra lines when EXTRARCFILE is empty" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
@@ -283,7 +282,7 @@ REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="ro
 	EXTRARCFILE="../etc/passwd" \
 	write_zshrc 2>/dev/null
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
-[ "${LINE_COUNT}" -eq 7 ] &&
+[ "${LINE_COUNT}" -eq 6 ] &&
 	pass "write_zshrc: rejects extraRcFile with path traversal (..)" ||
 	fail "write_zshrc: rejects extraRcFile with path traversal (..)" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
@@ -293,7 +292,7 @@ REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="ro
 	EXTRARCFILE='foo"bar.sh' \
 	write_zshrc 2>/dev/null
 LINE_COUNT=$(grep -c . "${TEST_HOME}/.zshrc" 2>/dev/null || echo 0)
-[ "${LINE_COUNT}" -eq 7 ] &&
+[ "${LINE_COUNT}" -eq 6 ] &&
 	pass "write_zshrc: rejects extraRcFile with unsafe characters" ||
 	fail "write_zshrc: rejects extraRcFile with unsafe characters" "line count=${LINE_COUNT}; $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
@@ -312,14 +311,14 @@ grep -q '\$(' "${TEST_HOME}/.zshrc" 2>/dev/null &&
 	fail "write_zshrc: .zshrc must not contain command substitution syntax at build time" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
 	pass "write_zshrc: .zshrc contains no command substitution syntax at build time"
 
-# 26. write_zshrc includes the _H11H_OMZ_LOADED guard to prevent double-loading
+# 26. write_zshrc includes the omz-function guard to prevent double-loading
 TEST_HOME=$(new_tmp)
 REMOTE_USER_HOME="$TEST_HOME" PLUGINS="git" THEME="robbyrussell" REMOTE_USER="root" \
 	EXTRARCFILE="" \
 	write_zshrc
-grep -q '_H11H_OMZ_LOADED' "${TEST_HOME}/.zshrc" &&
-	pass "write_zshrc: contains _H11H_OMZ_LOADED double-load guard" ||
-	fail "write_zshrc: contains _H11H_OMZ_LOADED double-load guard" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
+grep -q 'functions\[omz\]' "${TEST_HOME}/.zshrc" &&
+	pass "write_zshrc: contains omz-function double-load guard" ||
+	fail "write_zshrc: contains omz-function double-load guard" "$(cat "${TEST_HOME}/.zshrc" 2>/dev/null)"
 
 # 27. write_zshrc points ZSH to the global install dir (not ~/.oh-my-zsh)
 TEST_HOME=$(new_tmp)
@@ -368,9 +367,9 @@ test -f "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	fail "write_global_zshrc: creates oh-my-zsh.zsh in zshrc.d" "file not found"
 
 # 33. write_global_zshrc includes the double-load guard
-grep -q '_H11H_OMZ_LOADED' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
-	pass "write_global_zshrc: contains _H11H_OMZ_LOADED guard" ||
-	fail "write_global_zshrc: contains _H11H_OMZ_LOADED guard" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
+grep -q 'functions\[omz\]' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
+	pass "write_global_zshrc: contains omz-function guard" ||
+	fail "write_global_zshrc: contains omz-function guard" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
 
 # 34. write_global_zshrc uses the configured theme
 grep -q 'ZSH_THEME="agnoster"' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
