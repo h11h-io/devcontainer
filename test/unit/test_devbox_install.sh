@@ -527,6 +527,228 @@ grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" 2>/dev/null &&
 		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
 	pass "on-create: nix-daemon sourcing skipped when profile file absent"
 
+# ── ensure_nix_daemon_ready unit tests ────────────────────────────────────────
+
+# 18. ensure_nix_daemon_ready: skips immediately when daemon socket already present
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Create a real Unix-domain socket to trigger the early-exit path
+python3 - <<PY
+import socket
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind("${SOCKET_PATH}")
+sock.close()
+PY
+# Fake nix-daemon: must NOT be invoked
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${ONCREATE_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "on-create: ensure_nix_daemon_ready must not start daemon when socket present" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "on-create: ensure_nix_daemon_ready skips when socket already present"
+rm -f "${DAEMON_LOG}"
+
+# 19. ensure_nix_daemon_ready: skips immediately when nix-daemon binary absent
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+MISSING_BIN=$(new_tmp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${MISSING_BIN}/nix-daemon|g" \
+	"${ONCREATE_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_SCRIPT}"
+[ "${rc}" -eq 0 ] &&
+	pass "on-create: ensure_nix_daemon_ready exits 0 when binary absent" ||
+	fail "on-create: ensure_nix_daemon_ready exits 0 when binary absent" "exit code: ${rc}"
+
+# 20. ensure_nix_daemon_ready: starts daemon as root and waits for socket
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Fake nix-daemon: records invocation and creates a real Unix-domain socket
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+python3 - <<'PY'
+import os, socket as s
+p = "${SOCKET_PATH}"
+try:
+	os.unlink(p)
+except FileNotFoundError:
+	pass
+sock = s.socket(s.AF_UNIX, s.SOCK_STREAM)
+sock.bind(p)
+sock.close()
+PY
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep: daemon not running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id: root (uid=0)
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "0"
+EOF
+chmod +x "${TEST_BIN}/id"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${ONCREATE_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" &&
+	pass "on-create: ensure_nix_daemon_ready starts nix-daemon when root and not running" ||
+	fail "on-create: ensure_nix_daemon_ready starts nix-daemon when root and not running" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)"
+rm -f "${DAEMON_LOG}"
+
+# 21. ensure_nix_daemon_ready: returns immediately when non-root and daemon not running
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Fake nix-daemon: must NOT be invoked
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep: daemon not running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id: non-root (uid=1000)
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "1000"
+EOF
+chmod +x "${TEST_BIN}/id"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${ONCREATE_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
+rm -f "${PATCHED_SCRIPT}"
+[ "${rc}" -eq 0 ] &&
+	pass "on-create: ensure_nix_daemon_ready exits 0 when non-root" ||
+	fail "on-create: ensure_nix_daemon_ready exits 0 when non-root" "exit code: ${rc}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "on-create: ensure_nix_daemon_ready must not start daemon when non-root" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "on-create: ensure_nix_daemon_ready skips daemon start when non-root"
+rm -f "${DAEMON_LOG}"
+
+# 22. ensure_nix_daemon_ready: waits for socket when daemon is already running
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+# Fake nix-daemon binary (must exist but must NOT be invoked by ensure_nix_daemon_ready)
+cat >"${TEST_BIN}/nix-daemon" <<EOF
+#!/bin/sh
+echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+exit 0
+EOF
+chmod +x "${TEST_BIN}/nix-daemon"
+# Fake pgrep: daemon already running
+cat >"${TEST_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "${TEST_BIN}/pgrep"
+# Fake id: root (uid=0)
+cat >"${TEST_BIN}/id" <<'EOF'
+#!/bin/sh
+echo "0"
+EOF
+chmod +x "${TEST_BIN}/id"
+cat >"${TEST_BIN}/devbox" <<'EOF'
+#!/bin/sh
+echo "mock devbox $*"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+# Background process creates a real socket quickly so wait_for_nix_daemon_socket succeeds
+(sleep 0.2 && python3 -c "
+import socket
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind('${SOCKET_PATH}')
+sock.close()
+") &
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
+	"${ONCREATE_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
+grep -q "mock nix-daemon" "${DAEMON_LOG}" 2>/dev/null &&
+	fail "on-create: ensure_nix_daemon_ready must not start daemon when already running" \
+		"log: $(cat "${DAEMON_LOG}" 2>/dev/null)" ||
+	pass "on-create: ensure_nix_daemon_ready waits for socket when daemon already running"
+rm -f "${DAEMON_LOG}"
+
 summary
 
 # ── devbox-post-start.sh unit tests ───────────────────────────────────────────
