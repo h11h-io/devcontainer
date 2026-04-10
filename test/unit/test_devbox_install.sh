@@ -508,13 +508,20 @@ grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" &&
 TEST_BIN=$(new_tmp)
 WS=$(new_tmp)
 TEST_HOME=$(new_tmp)
+MISSING_NIX_PROFILE=$(new_tmp)/missing-nix-daemon.sh
 cat >"${TEST_BIN}/devbox" <<'EOF'
 #!/bin/sh
 echo "mock devbox $*"
 EOF
 chmod +x "${TEST_BIN}/devbox"
+# Patch script to point at a guaranteed-missing profile path for this test
+PATCHED_SCRIPT=$(mktemp)
+sed "s|/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh|${MISSING_NIX_PROFILE}|g" \
+	"${ONCREATE_SCRIPT}" >"${PATCHED_SCRIPT}"
+chmod +x "${PATCHED_SCRIPT}"
 HOME="${TEST_HOME}" PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
-	bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+	bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
+rm -f "${PATCHED_SCRIPT}"
 grep -q "devbox-nix-daemon" "${TEST_HOME}/.zshrc" 2>/dev/null &&
 	fail "on-create: nix-daemon block must not be added when profile absent" \
 		".zshrc: $(cat "${TEST_HOME}/.zshrc" 2>/dev/null)" ||
@@ -547,10 +554,15 @@ rm -f "${PATCHED_POSTSTART}"
 # 19. post-start starts nix-daemon when binary is present and not running
 TEST_BIN=$(new_tmp)
 DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
 # Fake nix-daemon binary that records invocation and exits immediately
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
 echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
+# Create a mock daemon socket path to satisfy readiness checks
+touch "${SOCKET_PATH}"
 exit 0
 EOF
 chmod +x "${TEST_BIN}/nix-daemon"
@@ -569,7 +581,7 @@ chmod +x "${TEST_BIN}/id"
 # Patch the binary path to point at our fake binary
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
-	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+	"${POSTSTART_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
 chmod +x "${PATCHED_SCRIPT}"
 HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
 rm -f "${PATCHED_SCRIPT}"
@@ -582,6 +594,9 @@ rm -f "${DAEMON_LOG}"
 # 20. post-start skips starting nix-daemon when it is already running
 TEST_BIN=$(new_tmp)
 DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
 echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
@@ -602,7 +617,7 @@ EOF
 chmod +x "${TEST_BIN}/id"
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
-	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+	"${POSTSTART_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
 chmod +x "${PATCHED_SCRIPT}"
 HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1
 rm -f "${PATCHED_SCRIPT}"
@@ -615,6 +630,9 @@ rm -f "${DAEMON_LOG}"
 # 21. post-start exits 0 and skips when running as non-root
 TEST_BIN=$(new_tmp)
 DAEMON_LOG=$(mktemp)
+SOCKET_ROOT=$(new_tmp)
+SOCKET_PATH="${SOCKET_ROOT}/daemon-socket/socket"
+mkdir -p "$(dirname "${SOCKET_PATH}")"
 cat >"${TEST_BIN}/nix-daemon" <<EOF
 #!/bin/sh
 echo "mock nix-daemon \$*" >> "${DAEMON_LOG}"
@@ -634,7 +652,7 @@ EOF
 chmod +x "${TEST_BIN}/id"
 PATCHED_SCRIPT=$(mktemp)
 sed "s|/nix/var/nix/profiles/default/bin/nix-daemon|${TEST_BIN}/nix-daemon|g" \
-	"${POSTSTART_SCRIPT}" >"${PATCHED_SCRIPT}"
+	"${POSTSTART_SCRIPT}" | sed "s|/nix/var/nix/daemon-socket/socket|${SOCKET_PATH}|g" >"${PATCHED_SCRIPT}"
 chmod +x "${PATCHED_SCRIPT}"
 HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" bash "${PATCHED_SCRIPT}" >/dev/null 2>&1 && rc=0 || rc=$?
 rm -f "${PATCHED_SCRIPT}"

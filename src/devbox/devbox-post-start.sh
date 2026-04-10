@@ -11,10 +11,31 @@
 set -uo pipefail
 
 NIX_DAEMON_BIN="/nix/var/nix/profiles/default/bin/nix-daemon"
+NIX_DAEMON_SOCKET="/nix/var/nix/daemon-socket/socket"
 NIX_DAEMON_LOG="/tmp/nix-daemon.log"
+
+wait_for_nix_daemon_socket() {
+	local attempts="${1:-30}"
+	local i=0
+
+	while [ "$i" -lt "$attempts" ]; do
+		if [ -S "${NIX_DAEMON_SOCKET}" ]; then
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	return 1
+}
 
 if [ ! -x "${NIX_DAEMON_BIN}" ]; then
 	echo "devbox-post-start: nix-daemon binary not found at ${NIX_DAEMON_BIN}; skipping."
+	exit 0
+fi
+
+if [ -S "${NIX_DAEMON_SOCKET}" ]; then
+	echo "devbox-post-start: nix-daemon socket already present; skipping."
 	exit 0
 fi
 
@@ -26,10 +47,15 @@ fi
 
 # Check if nix-daemon is already running
 if pgrep -x nix-daemon >/dev/null 2>&1; then
-	echo "devbox-post-start: nix-daemon already running; skipping."
-	exit 0
+	echo "devbox-post-start: nix-daemon already running; waiting for socket..."
+else
+	echo "devbox-post-start: starting nix-daemon (log: ${NIX_DAEMON_LOG})..."
+	"${NIX_DAEMON_BIN}" --daemon &>"${NIX_DAEMON_LOG}" &
+	echo "devbox-post-start: nix-daemon started (PID $!)."
 fi
 
-echo "devbox-post-start: starting nix-daemon (log: ${NIX_DAEMON_LOG})..."
-"${NIX_DAEMON_BIN}" --daemon &>"${NIX_DAEMON_LOG}" &
-echo "devbox-post-start: nix-daemon started (PID $!)."
+if wait_for_nix_daemon_socket 30; then
+	echo "devbox-post-start: nix-daemon socket is ready."
+else
+	echo "devbox-post-start: warning: nix-daemon socket did not appear at ${NIX_DAEMON_SOCKET} within timeout."
+fi
