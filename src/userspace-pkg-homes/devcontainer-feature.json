@@ -1,6 +1,6 @@
 {
   "id": "userspace-pkg-homes",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "Userspace Package Homes",
   "description": "Configures writable userspace directories for global package installs (pnpm, pipx, npm). Ensures global installs default to stable, writable locations under the user's home directory.",
   "options": {

@@ -8,6 +8,11 @@ CONFIGURE_NPM="${CONFIGURENPM:-false}"
 REMOTE_USER="${_REMOTE_USER:-${USER:-root}}"
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-${HOME:-/root}}"
 
+# Testability hooks — override these in unit tests to use temp paths
+PROFILE_D_DIR="${PROFILE_D_DIR:-/etc/profile.d}"
+ZSHRC_D_DIR="${ZSHRC_D_DIR:-/etc/zsh/zshrc.d}"
+GLOBAL_ZSHRC="${GLOBAL_ZSHRC:-/etc/zsh/zshrc}"
+
 MARKER_BEGIN="# >> userspace-pkg-homes config >>"
 MARKER_END="# << userspace-pkg-homes config <<"
 
@@ -101,6 +106,22 @@ ensure_dirs() {
 	fi
 }
 
+# ensure_zshrc_d creates /etc/zsh/zshrc.d and ensures /etc/zsh/zshrc sources it.
+# This allows drop-in zsh config files that are loaded even when the user home
+# directory is mounted over the image (e.g. Coder/envbuilder workspaces).
+ensure_zshrc_d() {
+	mkdir -p "${ZSHRC_D_DIR}"
+	if [ ! -f "${GLOBAL_ZSHRC}" ]; then
+		mkdir -p "$(dirname "${GLOBAL_ZSHRC}")"
+		touch "${GLOBAL_ZSHRC}"
+	fi
+	local marker='# h11h-io: source /etc/zsh/zshrc.d'
+	if ! grep -qF "${marker}" "${GLOBAL_ZSHRC}"; then
+		printf '\n%s\nfor _h11h_f in %s/*.zsh(N); do [ -r "$_h11h_f" ] && . "$_h11h_f"; done; unset _h11h_f\n' \
+			"${marker}" "${ZSHRC_D_DIR}" >>"${GLOBAL_ZSHRC}"
+	fi
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	block=$(build_config_block)
 
@@ -111,6 +132,16 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
 	ensure_dirs
 
+	# Write to global locations first — these survive runtime home mounts
+	# (e.g. Coder/envbuilder workspaces).
+	mkdir -p "${PROFILE_D_DIR}"
+	inject_config "${PROFILE_D_DIR}/userspace-pkg-homes.sh" "${block}"
+
+	ensure_zshrc_d
+	inject_config "${ZSHRC_D_DIR}/userspace-pkg-homes.zsh" "${block}"
+
+	# Also write to user dotfiles as convenience for environments where the home
+	# directory persists from the image (e.g. Codespaces).
 	inject_config "${REMOTE_USER_HOME}/.bashrc" "${block}"
 	inject_config "${REMOTE_USER_HOME}/.zshrc" "${block}"
 
