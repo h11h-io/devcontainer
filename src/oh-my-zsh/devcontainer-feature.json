@@ -1,6 +1,6 @@
 {
   "id": "oh-my-zsh",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "name": "Oh My Zsh",
   "description": "Installs zsh and Oh My Zsh with a configurable set of plugins and theme. External plugins (zsh-autosuggestions, zsh-syntax-highlighting, pnpm, etc.) are cloned automatically. Writes a managed .zshrc and sets zsh as the default shell.",
   "options": {

@@ -92,8 +92,7 @@ write_zshrc() {
 	# activation path — the global /etc/zsh/zshrc.d/oh-my-zsh.zsh handles that.
 	{
 		printf '# managed by oh-my-zsh devcontainer feature\n'
-		printf '[[ -n "${_H11H_OMZ_LOADED:-}" ]] && return 0\n'
-		printf 'export _H11H_OMZ_LOADED=1\n'
+		printf '(( ${+functions[omz]} )) && return 0\n'
 		printf 'export ZSH="%s"\n' "${OMZ_DIR}"
 		printf 'ZSH_THEME="%s"\n' "${THEME}"
 		printf 'plugins=(%s)\n' "${plugin_list}"
@@ -164,8 +163,7 @@ write_global_zshrc() {
 	{
 		printf '# oh-my-zsh devcontainer feature — global config\n'
 		printf '# Skip if already loaded (e.g. user'"'"'s ~/.zshrc also sources oh-my-zsh)\n'
-		printf '[[ -n "${_H11H_OMZ_LOADED:-}" ]] && return 0\n'
-		printf 'export _H11H_OMZ_LOADED=1\n'
+		printf '(( ${+functions[omz]} )) && return 0\n'
 		printf 'export ZSH="%s"\n' "${OMZ_DIR}"
 		printf 'ZSH_THEME="%s"\n' "${THEME}"
 		printf 'plugins=(%s)\n' "${plugin_list}"
