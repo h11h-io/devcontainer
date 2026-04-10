@@ -249,34 +249,34 @@ count=$(grep -c 'h11h-io: source' "${TEST_GLOBAL_ZSHRC}" || true)
 
 # ── 19. e2e: global profile.d file written ───────────────────────────────────
 TEST_HOME=$(new_tmp)
-TEST_PROF=$(new_tmp)/profile.d
-TEST_ZSHRC_D2=$(new_tmp)/zshrc.d
-TEST_GLOBAL_ZSHRC2=$(new_tmp)/zshrc
+TEST_PROF_GLOBAL=$(new_tmp)/profile.d
+TEST_ZSHRC_D_GLOBAL=$(new_tmp)/zshrc.d
+TEST_GLOBAL_ZSHRC_E2E=$(new_tmp)/zshrc
 REMOTE_USER_HOME="${TEST_HOME}" REMOTE_USER="root" \
 	_REMOTE_USER="root" _REMOTE_USER_HOME="${TEST_HOME}" \
 	CONFIGUREPNPM="true" CONFIGUREPIPX="false" CONFIGURENPM="false" \
-	PROFILE_D_DIR="${TEST_PROF}" \
-	ZSHRC_D_DIR="${TEST_ZSHRC_D2}" \
-	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC2}" \
+	PROFILE_D_DIR="${TEST_PROF_GLOBAL}" \
+	ZSHRC_D_DIR="${TEST_ZSHRC_D_GLOBAL}" \
+	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC_E2E}" \
 	bash "$INSTALL_SCRIPT"
-grep -qF 'PNPM_HOME' "${TEST_PROF}/userspace-pkg-homes.sh" &&
+grep -qF 'PNPM_HOME' "${TEST_PROF_GLOBAL}/userspace-pkg-homes.sh" &&
 	pass "e2e: global profile.d file has PNPM_HOME" ||
-	fail "e2e: global profile.d file has PNPM_HOME" "$(cat "${TEST_PROF}/userspace-pkg-homes.sh" 2>/dev/null)"
+	fail "e2e: global profile.d file has PNPM_HOME" "$(cat "${TEST_PROF_GLOBAL}/userspace-pkg-homes.sh" 2>/dev/null)"
 
 # ── 20. e2e: global zshrc.d file written ─────────────────────────────────────
-grep -qF 'PNPM_HOME' "${TEST_ZSHRC_D2}/userspace-pkg-homes.zsh" &&
+grep -qF 'PNPM_HOME' "${TEST_ZSHRC_D_GLOBAL}/userspace-pkg-homes.zsh" &&
 	pass "e2e: global zshrc.d file has PNPM_HOME" ||
-	fail "e2e: global zshrc.d file has PNPM_HOME" "$(cat "${TEST_ZSHRC_D2}/userspace-pkg-homes.zsh" 2>/dev/null)"
+	fail "e2e: global zshrc.d file has PNPM_HOME" "$(cat "${TEST_ZSHRC_D_GLOBAL}/userspace-pkg-homes.zsh" 2>/dev/null)"
 
 # ── 21. e2e: global profile.d is idempotent (no duplicate blocks) ────────────
 REMOTE_USER_HOME="${TEST_HOME}" REMOTE_USER="root" \
 	_REMOTE_USER="root" _REMOTE_USER_HOME="${TEST_HOME}" \
 	CONFIGUREPNPM="true" CONFIGUREPIPX="false" CONFIGURENPM="false" \
-	PROFILE_D_DIR="${TEST_PROF}" \
-	ZSHRC_D_DIR="${TEST_ZSHRC_D2}" \
-	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC2}" \
+	PROFILE_D_DIR="${TEST_PROF_GLOBAL}" \
+	ZSHRC_D_DIR="${TEST_ZSHRC_D_GLOBAL}" \
+	GLOBAL_ZSHRC="${TEST_GLOBAL_ZSHRC_E2E}" \
 	bash "$INSTALL_SCRIPT"
-count=$(grep -cF '# >> userspace-pkg-homes config >>' "${TEST_PROF}/userspace-pkg-homes.sh" || true)
+count=$(grep -cF '# >> userspace-pkg-homes config >>' "${TEST_PROF_GLOBAL}/userspace-pkg-homes.sh" || true)
 [ "${count}" -eq 1 ] &&
 	pass "e2e: global profile.d idempotent (single block after double run)" ||
 	fail "e2e: global profile.d idempotent (single block after double run)" "found ${count} blocks"

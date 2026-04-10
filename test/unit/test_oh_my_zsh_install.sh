@@ -358,28 +358,28 @@ count=$(grep -c 'h11h-io: source' "${TEST_GLOBAL_ZSHRC}" || true)
 	fail "ensure_zshrc_d: idempotent (single sourcing loop after double call)" "found ${count} markers"
 
 # 32. write_global_zshrc writes oh-my-zsh.zsh to zshrc.d
-TEST_ZSHRC_D2=$(new_tmp)/zshrc.d
-mkdir -p "${TEST_ZSHRC_D2}"
-ZSHRC_D_DIR="${TEST_ZSHRC_D2}" PLUGINS="git kubectl" THEME="agnoster" \
+TEST_ZSHRC_D_GLOBAL=$(new_tmp)/zshrc.d
+mkdir -p "${TEST_ZSHRC_D_GLOBAL}"
+ZSHRC_D_DIR="${TEST_ZSHRC_D_GLOBAL}" PLUGINS="git kubectl" THEME="agnoster" \
 	EXTRARCFILE="" AUTOSUGGESTSTYLE="" AUTOSUGGESTSTRATEGY="" \
 	write_global_zshrc
-test -f "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" &&
+test -f "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	pass "write_global_zshrc: creates oh-my-zsh.zsh in zshrc.d" ||
 	fail "write_global_zshrc: creates oh-my-zsh.zsh in zshrc.d" "file not found"
 
 # 33. write_global_zshrc includes the double-load guard
-grep -q '_H11H_OMZ_LOADED' "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" &&
+grep -q '_H11H_OMZ_LOADED' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	pass "write_global_zshrc: contains _H11H_OMZ_LOADED guard" ||
-	fail "write_global_zshrc: contains _H11H_OMZ_LOADED guard" "$(cat "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" 2>/dev/null)"
+	fail "write_global_zshrc: contains _H11H_OMZ_LOADED guard" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
 
 # 34. write_global_zshrc uses the configured theme
-grep -q 'ZSH_THEME="agnoster"' "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" &&
+grep -q 'ZSH_THEME="agnoster"' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	pass "write_global_zshrc: uses configured theme" ||
-	fail "write_global_zshrc: uses configured theme" "$(cat "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" 2>/dev/null)"
+	fail "write_global_zshrc: uses configured theme" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
 
 # 35. write_global_zshrc includes the configured plugins
-grep -q 'plugins=(git kubectl)' "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" &&
+grep -q 'plugins=(git kubectl)' "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" &&
 	pass "write_global_zshrc: includes configured plugins" ||
-	fail "write_global_zshrc: includes configured plugins" "$(cat "${TEST_ZSHRC_D2}/oh-my-zsh.zsh" 2>/dev/null)"
+	fail "write_global_zshrc: includes configured plugins" "$(cat "${TEST_ZSHRC_D_GLOBAL}/oh-my-zsh.zsh" 2>/dev/null)"
 
 summary
