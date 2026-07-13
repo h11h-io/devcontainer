@@ -38,7 +38,7 @@ echo "${INSTALLED_DEVBOX_VERSION}"
 # makes every user download Devbox again and can fail in restricted networks.
 # Promote the executable resolved by `devbox version` to the system-wide path,
 # matching the approach used by the official devbox-install-action.
-RESOLVED_DEVBOX="$(find "${DEVBOX_CACHE_BIN_DIR}" -type f -path "*/${INSTALLED_DEVBOX_VERSION}_*/devbox" 2>/dev/null | head -n 1)"
+RESOLVED_DEVBOX="$(find "${DEVBOX_CACHE_BIN_DIR}" -type f -path "*/${INSTALLED_DEVBOX_VERSION}_*/devbox" 2>/dev/null | LC_ALL=C sort | head -n 1)"
 if [ -n "${RESOLVED_DEVBOX}" ] && [ "${RESOLVED_DEVBOX}" != "${DEVBOX_INSTALL_PATH}" ]; then
 	echo "devbox: promoting resolved CLI from ${RESOLVED_DEVBOX} to ${DEVBOX_INSTALL_PATH}..."
 	install -o root -g root -m 0755 "${RESOLVED_DEVBOX}" "${DEVBOX_INSTALL_PATH}"

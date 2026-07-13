@@ -266,6 +266,28 @@ grep -q "resolved-devbox-binary" "${TEST_BIN}/devbox" &&
 	pass "install: promotes the resolved version when stale caches exist" ||
 	fail "install: promotes the resolved version when stale caches exist" "installed devbox did not match resolved version"
 
+# Multiple cache entries for the resolved version must be selected in a stable
+# lexical order rather than filesystem traversal order.
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+TEST_CACHE=$(new_tmp)
+mkdir -p "${TEST_CACHE}/0.0.0-mock_z_candidate" "${TEST_CACHE}/0.0.0-mock_a_candidate"
+cat >"${TEST_CACHE}/0.0.0-mock_z_candidate/devbox" <<'EOF'
+#!/bin/sh
+echo "later-resolved-devbox-binary"
+EOF
+cat >"${TEST_CACHE}/0.0.0-mock_a_candidate/devbox" <<'EOF'
+#!/bin/sh
+echo "first-resolved-devbox-binary"
+EOF
+chmod +x "${TEST_CACHE}/0.0.0-mock_z_candidate/devbox" "${TEST_CACHE}/0.0.0-mock_a_candidate/devbox"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" \
+	DEVBOX_INSTALL_PATH="${TEST_BIN}/devbox" DEVBOX_CACHE_BIN_DIR="$TEST_CACHE" \
+	sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+grep -q "first-resolved-devbox-binary" "${TEST_BIN}/devbox" &&
+	pass "install: selects same-version cache entries deterministically" ||
+	fail "install: selects same-version cache entries deterministically" "installed devbox was not the first sorted candidate"
+
 # 7b. install.sh emits a git-commit identifier line (for tracing the published artifact)
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"

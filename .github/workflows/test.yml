@@ -39,20 +39,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        feature:
-          - devbox
-          - git-identity-from-github
-          - oh-my-zsh
-        image:
-          - mcr.microsoft.com/devcontainers/base:ubuntu-22.04
-          - mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
-          - mcr.microsoft.com/devcontainers/python:1-3.13-bookworm
         include:
-          - image: mcr.microsoft.com/devcontainers/base:ubuntu-22.04
+          - feature: devbox
+            image: mcr.microsoft.com/devcontainers/base:ubuntu-22.04
             image-name: base-ubuntu-22.04
-          - image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+          - feature: devbox
+            image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
             image-name: node-22-bookworm
-          - image: mcr.microsoft.com/devcontainers/python:1-3.13-bookworm
+          - feature: devbox
+            image: mcr.microsoft.com/devcontainers/python:1-3.13-bookworm
+            image-name: python-3.13-bookworm
+          - feature: git-identity-from-github
+            image: mcr.microsoft.com/devcontainers/base:ubuntu-22.04
+            image-name: base-ubuntu-22.04
+          - feature: git-identity-from-github
+            image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+            image-name: node-22-bookworm
+          - feature: git-identity-from-github
+            image: mcr.microsoft.com/devcontainers/python:1-3.13-bookworm
+            image-name: python-3.13-bookworm
+          - feature: oh-my-zsh
+            image: mcr.microsoft.com/devcontainers/base:ubuntu-22.04
+            image-name: base-ubuntu-22.04
+          - feature: oh-my-zsh
+            image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+            image-name: node-22-bookworm
+          - feature: oh-my-zsh
+            image: mcr.microsoft.com/devcontainers/python:1-3.13-bookworm
             image-name: python-3.13-bookworm
     steps:
       - uses: actions/checkout@v4
