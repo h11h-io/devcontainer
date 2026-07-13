@@ -44,6 +44,23 @@ devcontainer features test --project-folder . \
 
 ## Base-environment smoke test
 
+### Published features on a local laptop
+
+Run the consumer smoke test to pull the public `:1` feature tags from GHCR,
+apply all three features to a clean base image with the `devcontainer` CLI,
+and execute assertions inside the resulting container:
+
+```bash
+bash test/published-features/run.sh
+```
+
+This test requires the `devcontainer` CLI and a running Docker daemon. It uses
+`--build-no-cache` so it exercises the published artifacts instead of a cached
+feature layer, then removes its test container on exit. It is intentionally a
+manual laptop test and does not run in CI.
+
+### Platform smoke test
+
 Build `examples/base/devcontainer.json` from a fixture repository containing a
 minimal `devbox.json` with a `setup` script. Verify:
 
