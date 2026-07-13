@@ -4,6 +4,27 @@
 
 Reusable [devcontainer features](https://containers.dev/features) published to GHCR. Add any of these features to your `devcontainer.json` to get a fully-configured development environment out of the box.
 
+## Lightweight Base Environment
+
+[`examples/base/devcontainer.json`](examples/base/devcontainer.json) is the canonical starting point for Foundation repositories. It composes only the capabilities that every workspace needs:
+
+- Docker CLI wired to the platform's existing daemon
+- GitHub CLI and automatic Git identity
+- Devbox/Nix for project-owned tools
+- A small zsh configuration
+
+Project dependencies stay in one repository-owned `devbox run setup` command. Do not also enable `project-setup` when that setup command installs the same Node or Python dependencies; doing both repeats work during container creation.
+
+The example deliberately uses `docker-outside-of-docker` instead of installing a daemon in the workspace. The platform must expose `/var/run/docker.sock`:
+
+| Platform | Docker contract |
+|---|---|
+| GitHub Codespaces | Reuse the Docker daemon on the Codespaces VM. |
+| Coder | Mount the workspace host's Docker socket in the Coder template. |
+| Local VS Code | Reuse Docker Desktop/Engine through the local socket. |
+
+This keeps the repository configuration portable and avoids a privileged Docker-in-Docker daemon, a second image store, and daemon startup waits. If a Coder deployment intentionally has no Docker socket, run backing services outside the workspace rather than installing Docker during a lifecycle hook.
+
 ## Available Features
 
 | Feature | GHCR Reference | Description |
@@ -12,7 +33,6 @@ Reusable [devcontainer features](https://containers.dev/features) published to G
 | [Devbox](#devbox) | `ghcr.io/h11h-io/devcontainer/devbox:1` | Installs [Devbox](https://www.jetify.com/devbox) and runs `devbox install` on container creation |
 | [Oh My Zsh](#oh-my-zsh) | `ghcr.io/h11h-io/devcontainer/oh-my-zsh:1` | Installs zsh, Oh My Zsh, and a configurable set of plugins and themes |
 | [Project Setup](#project-setup) | `ghcr.io/h11h-io/devcontainer/project-setup:1` | Runs project setup tasks on container creation (dependency installs, env files, lefthook, direnv) |
-| [Supabase CLI](#supabase-cli) | `ghcr.io/h11h-io/devcontainer/supabase-cli:1` | Installs the Supabase CLI with Docker image pre-pull |
 | [Coder CLI](#coder) | `ghcr.io/h11h-io/devcontainer/coder:1` | Installs the [Coder](https://coder.com) CLI |
 | [Userspace Package Homes](#userspace-package-homes) | `ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1` | Configures writable userspace directories for global package installs (pnpm, pipx, npm) |
 
@@ -196,40 +216,6 @@ If a required tool is not found on `PATH`, the step is skipped with a warning an
 
 ---
 
-## Supabase CLI
-
-Installs the [Supabase CLI](https://supabase.com/docs/guides/cli). **Requires Docker** — add the `docker-in-docker` or `docker-outside-of-docker` feature before this one. Pre-pulls Supabase Docker images on first container start so `supabase start` is fast later.
-
-### Usage
-
-```jsonc
-// devcontainer.json
-{
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/h11h-io/devcontainer/supabase-cli:1": {}
-  }
-}
-```
-
-### Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `version` | `string` | `"2.84.2"` | Supabase CLI version (must match a GitHub release tag) |
-| `dockerWaitSeconds` | `string` | `"30"` | Seconds to wait for Docker daemon readiness before pre-pulling images |
-
-### How it works
-
-- **Build time (`install.sh`)**: downloads the arch-aware tarball from GitHub releases. Fails if Docker is not available (hard dependency).
-- **Container start (`postStartCommand`)**: runs `supabase-post-start`, which:
-  1. Checks for a marker file — skips if images were already pulled.
-  2. Waits for Docker to become ready (configurable timeout).
-  3. Runs `supabase start && supabase stop` to pull all required images.
-  4. Creates a marker file so subsequent starts are instant.
-
----
-
 ## Coder CLI
 
 Installs the [Coder CLI](https://coder.com) for interacting with Coder workspaces.
@@ -351,9 +337,6 @@ Here's an example `devcontainer.json` that uses all features together:
       "lefthookInstall": true,
       "direnvAllow": true
     },
-    "ghcr.io/h11h-io/devcontainer/supabase-cli:1": {
-      "version": "2.84.2"
-    },
     "ghcr.io/h11h-io/devcontainer/coder:1": {},
     "ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1": {}
   }
@@ -382,7 +365,6 @@ bash test/unit/test_git_identity.sh
 bash test/unit/test_devbox_install.sh
 bash test/unit/test_oh_my_zsh_install.sh
 bash test/unit/test_project_setup.sh
-bash test/unit/test_supabase_cli_install.sh
 bash test/unit/test_coder_install.sh
 bash test/unit/test_userspace_pkg_homes.sh
 ```

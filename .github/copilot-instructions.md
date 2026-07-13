@@ -27,7 +27,7 @@ test/unit/
 3. **Linting**: `shellcheck --severity=warning`
 4. **Error handling**: `set -e` (sh) or `set -euo pipefail` (bash)
 5. **BASH_SOURCE guard** for sourceable scripts
-6. Use `DOCKER_CMD`, `SUPABASE_CMD`, `CODER_CMD` env-var hooks for testability
+6. Use command env-var hooks such as `DOCKER_CMD` and `CODER_CMD` for testability
 
 ### Running Checks
 

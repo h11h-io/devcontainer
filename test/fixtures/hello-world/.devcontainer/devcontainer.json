@@ -5,7 +5,6 @@
     "ghcr.io/h11h-io/devcontainer/git-identity-from-github:1": {},
     "ghcr.io/h11h-io/devcontainer/devbox:1": {},
     "ghcr.io/h11h-io/devcontainer/oh-my-zsh:1": {},
-    "ghcr.io/h11h-io/devcontainer/supabase-cli:1": {},
     "ghcr.io/h11h-io/devcontainer/coder:1": {}
   }
 }

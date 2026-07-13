@@ -1,0 +1,26 @@
+{
+  "name": "Foundation Base",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "remoteUser": "root",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "dockerDashComposeVersion": "none"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/h11h-io/devcontainer/git-identity-from-github:1": {},
+    "ghcr.io/h11h-io/devcontainer/devbox:1": {
+      "exportGlobalProfile": false
+    },
+    "ghcr.io/h11h-io/devcontainer/oh-my-zsh:1": {
+      "plugins": "git z zsh-autosuggestions zsh-syntax-highlighting"
+    }
+  },
+  "postCreateCommand": "bash -c 'devbox run setup 2>&1 | tee /tmp/postCreate.log; exit ${PIPESTATUS[0]}'",
+  "remoteEnv": {
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "DIRENV_WARN_TIMEOUT": "2m",
+    "DOCKER_BUILDKIT": "1",
+    "PATH": "${containerWorkspaceFolder}/.devbox/nix/profile/default/bin:${containerEnv:PATH}",
+    "SHELL": "/bin/zsh"
+  }
+}
