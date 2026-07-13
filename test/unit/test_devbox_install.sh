@@ -226,6 +226,24 @@ grep -q "^version$" "${TEST_BIN}/devbox_calls.log" &&
 	pass "install: devbox version called after install" ||
 	fail "install: devbox version called after install" "devbox_calls: $(cat "${TEST_BIN}/devbox_calls.log")"
 
+# 7a. Promote the resolved executable from Jetify's per-user cache so runtime
+# users do not invoke the launcher and download Devbox again.
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+TEST_CACHE=$(new_tmp)
+mkdir -p "${TEST_CACHE}/0.0.0-mock"
+cat >"${TEST_CACHE}/0.0.0-mock/devbox" <<'EOF'
+#!/bin/sh
+echo "resolved-devbox-binary"
+EOF
+chmod +x "${TEST_CACHE}/0.0.0-mock/devbox"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" \
+	DEVBOX_INSTALL_PATH="${TEST_BIN}/devbox" DEVBOX_CACHE_BIN_DIR="$TEST_CACHE" \
+	sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+grep -q "resolved-devbox-binary" "${TEST_BIN}/devbox" &&
+	pass "install: promotes resolved cached binary over launcher" ||
+	fail "install: promotes resolved cached binary over launcher" "installed devbox was not the resolved binary"
+
 # 7b. install.sh emits a git-commit identifier line (for tracing the published artifact)
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
