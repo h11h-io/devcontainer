@@ -16,6 +16,7 @@ set -euo pipefail
 
 WORKSPACE="${containerWorkspaceFolder:-$PWD}"
 EXPORTGLOBALPROFILE="${EXPORTGLOBALPROFILE:-true}"
+INSTALLPROJECTPACKAGES="${INSTALLPROJECTPACKAGES:-true}"
 
 NIX_DAEMON_BIN="/nix/var/nix/profiles/default/bin/nix-daemon"
 NIX_DAEMON_SOCKET="/nix/var/nix/daemon-socket/socket"
@@ -82,7 +83,9 @@ ensure_nix_daemon_ready() {
 
 # ── devbox install ────────────────────────────────────────────────────────────
 
-if [ -f "${WORKSPACE}/devbox.json" ]; then
+if [ "${INSTALLPROJECTPACKAGES}" != "true" ]; then
+	echo "devbox-on-create: project package installation disabled; repository postCreateCommand owns setup."
+elif [ -f "${WORKSPACE}/devbox.json" ]; then
 	ensure_nix_daemon_ready
 
 	echo "devbox-on-create: running devbox install in ${WORKSPACE}..."

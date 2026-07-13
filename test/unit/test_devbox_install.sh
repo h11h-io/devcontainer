@@ -231,18 +231,40 @@ grep -q "^version$" "${TEST_BIN}/devbox_calls.log" &&
 TEST_BIN=$(new_tmp)
 make_mock_bin "$TEST_BIN"
 TEST_CACHE=$(new_tmp)
-mkdir -p "${TEST_CACHE}/0.0.0-mock"
-cat >"${TEST_CACHE}/0.0.0-mock/devbox" <<'EOF'
+mkdir -p "${TEST_CACHE}/0.0.0-mock_linux_amd64"
+cat >"${TEST_CACHE}/0.0.0-mock_linux_amd64/devbox" <<'EOF'
 #!/bin/sh
 echo "resolved-devbox-binary"
 EOF
-chmod +x "${TEST_CACHE}/0.0.0-mock/devbox"
+chmod +x "${TEST_CACHE}/0.0.0-mock_linux_amd64/devbox"
 PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" \
 	DEVBOX_INSTALL_PATH="${TEST_BIN}/devbox" DEVBOX_CACHE_BIN_DIR="$TEST_CACHE" \
 	sh "$INSTALL_SCRIPT" >/dev/null 2>&1
 grep -q "resolved-devbox-binary" "${TEST_BIN}/devbox" &&
 	pass "install: promotes resolved cached binary over launcher" ||
 	fail "install: promotes resolved cached binary over launcher" "installed devbox was not the resolved binary"
+
+# A stale cached binary must not be promoted when the just-resolved version is
+# also present.
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+TEST_CACHE=$(new_tmp)
+mkdir -p "${TEST_CACHE}/9.9.9_linux_amd64" "${TEST_CACHE}/0.0.0-mock_linux_amd64"
+cat >"${TEST_CACHE}/9.9.9_linux_amd64/devbox" <<'EOF'
+#!/bin/sh
+echo "stale-devbox-binary"
+EOF
+cat >"${TEST_CACHE}/0.0.0-mock_linux_amd64/devbox" <<'EOF'
+#!/bin/sh
+echo "resolved-devbox-binary"
+EOF
+chmod +x "${TEST_CACHE}/9.9.9_linux_amd64/devbox" "${TEST_CACHE}/0.0.0-mock_linux_amd64/devbox"
+PATH="$TEST_BIN:$PATH" VERSION="latest" RUNINSTALL="false" \
+	DEVBOX_INSTALL_PATH="${TEST_BIN}/devbox" DEVBOX_CACHE_BIN_DIR="$TEST_CACHE" \
+	sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+grep -q "resolved-devbox-binary" "${TEST_BIN}/devbox" &&
+	pass "install: promotes the resolved version when stale caches exist" ||
+	fail "install: promotes the resolved version when stale caches exist" "installed devbox did not match resolved version"
 
 # 7b. install.sh emits a git-commit identifier line (for tracing the published artifact)
 TEST_BIN=$(new_tmp)
@@ -286,6 +308,24 @@ grep -q "^install$" "${CALL_LOG}" &&
 	pass "on-create: devbox install called when devbox.json exists" ||
 	fail "on-create: devbox install called when devbox.json exists" \
 		"calls: $(cat "${CALL_LOG}" 2>/dev/null)"
+
+# Repository-owned postCreate setup can disable the feature's package install.
+TEST_BIN=$(new_tmp)
+WS=$(new_tmp)
+CALL_LOG="${TEST_BIN}/devbox_calls.log"
+printf '{"packages":[]}' >"${WS}/devbox.json"
+cat >"${TEST_BIN}/devbox" <<EOF
+#!/bin/sh
+echo "\${1:-}" >> "${CALL_LOG}"
+EOF
+chmod +x "${TEST_BIN}/devbox"
+HOME=$(new_tmp) PATH="${TEST_BIN}:${PATH}" containerWorkspaceFolder="${WS}" \
+INSTALLPROJECTPACKAGES=false bash "${ONCREATE_SCRIPT}" >/dev/null 2>&1
+if [ -f "${CALL_LOG}" ] && grep -q '^install$' "${CALL_LOG}"; then
+	fail "on-create: package install disabled" "devbox install was called"
+else
+	pass "on-create: package install disabled for repository-owned setup"
+fi
 
 # 8b. devbox install is invoked with stdin redirected from /dev/null AND CI=1 set.
 #     We use script(1) to allocate a real PTY so that stdin is a live terminal

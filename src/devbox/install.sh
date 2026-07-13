@@ -28,7 +28,8 @@ fi
 chmod 755 "${DEVBOX_INSTALL_PATH}"
 
 echo "devbox: Devbox CLI installed successfully."
-devbox version
+INSTALLED_DEVBOX_VERSION="$(devbox version)"
+echo "${INSTALLED_DEVBOX_VERSION}"
 
 # The Jetify installer places a small launcher at /usr/local/bin/devbox and
 # downloads the resolved executable into the invoking user's cache on first run.
@@ -37,7 +38,7 @@ devbox version
 # makes every user download Devbox again and can fail in restricted networks.
 # Promote the executable resolved by `devbox version` to the system-wide path,
 # matching the approach used by the official devbox-install-action.
-RESOLVED_DEVBOX="$(find "${DEVBOX_CACHE_BIN_DIR}" -type f -name devbox 2>/dev/null | head -n 1)"
+RESOLVED_DEVBOX="$(find "${DEVBOX_CACHE_BIN_DIR}" -type f -path "*/${INSTALLED_DEVBOX_VERSION}_*/devbox" 2>/dev/null | head -n 1)"
 if [ -n "${RESOLVED_DEVBOX}" ] && [ "${RESOLVED_DEVBOX}" != "${DEVBOX_INSTALL_PATH}" ]; then
 	echo "devbox: promoting resolved CLI from ${RESOLVED_DEVBOX} to ${DEVBOX_INSTALL_PATH}..."
 	install -o root -g root -m 0755 "${RESOLVED_DEVBOX}" "${DEVBOX_INSTALL_PATH}"

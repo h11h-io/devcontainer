@@ -1,7 +1,7 @@
 
 # Devbox (devbox)
 
-Installs Devbox by Jetify — a Nix-based isolated development environment tool. Runs 'devbox install' on container creation and exports the project's Nix profile path into login shells so all devbox-managed tools are available without 'devbox run'. On every container start, starts nix-daemon in the background when present (needed for multi-user Nix in devcontainers where systemd doesn't run).
+Installs Devbox by Jetify — a Nix-based isolated development environment tool. Optionally installs project packages during container creation, exports Devbox profile paths into login shells, and keeps nix-daemon available across container starts.
 
 ## Example Usage
 
@@ -17,6 +17,7 @@ Installs Devbox by Jetify — a Nix-based isolated development environment tool.
 |-----|-----|-----|-----|
 | version | Version of Devbox to install. Use 'latest' for the most recent release. | string | latest |
 | exportGlobalProfile | When true (default), also exports the global devbox Nix profile (~/.local/share/devbox/global/…/bin) into login shells so globally-installed devbox packages are available everywhere. | boolean | true |
+| installProjectPackages | When true, run 'devbox install' during onCreate. Set false when the repository's postCreateCommand already uses 'devbox run setup' so packages are resolved only once. | boolean | true |
 
 
 
