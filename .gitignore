@@ -13,6 +13,3 @@ Thumbs.db
 
 # Temp files
 /tmp/
-
-# Go build outputs
-test/tty-check/tty-check
