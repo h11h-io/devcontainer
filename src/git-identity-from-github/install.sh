@@ -5,11 +5,12 @@ OVERWRITE="${OVERWRITE:-false}"
 
 echo "git-identity-from-github: install.sh (built from git commit: @GIT_SHA@)"
 
-# Ensure curl and jq are available (typically pre-installed on devcontainer base images)
-if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-	echo "configure-git-identity: installing curl and jq..."
+# Install everything the runtime helper requires. Do not rely on richer
+# Dev Containers base images to provide Git implicitly.
+if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+	echo "configure-git-identity: installing git, curl, and jq..."
 	apt-get update -y
-	apt-get install -y --no-install-recommends curl jq
+	apt-get install -y --no-install-recommends git curl jq
 	rm -rf /var/lib/apt/lists/*
 fi
 

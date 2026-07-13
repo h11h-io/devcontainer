@@ -20,6 +20,7 @@ check "configure-git-identity script is executable" \
 
 check "curl is available" command -v curl
 check "jq is available" command -v jq
+check "git is available" command -v git
 
 # ── runtime behaviour ─────────────────────────────────────────────────────────
 check "no-token: exits cleanly and prints a warning" \
