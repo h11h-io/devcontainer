@@ -68,7 +68,7 @@ minimal `devbox.json` with a `setup` script. Verify:
 2. `devbox run setup` resolves the project exactly once;
 3. `docker info` reaches the platform daemon;
 4. Git identity gracefully configures or reports missing authentication;
-5. stopping and restarting the container restores `nix-daemon`.
+5. stopping and restarting the container preserves the installed environment.
 
 Run the smoke test in GitHub Codespaces, a Coder/envbuilder workspace with its
 Docker socket exposed, and local VS Code. Projects using Docker bind mounts must

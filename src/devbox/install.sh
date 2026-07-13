@@ -44,18 +44,3 @@ if [ -n "${RESOLVED_DEVBOX}" ] && [ "${RESOLVED_DEVBOX}" != "${DEVBOX_INSTALL_PA
 	install -o root -g root -m 0755 "${RESOLVED_DEVBOX}" "${DEVBOX_INSTALL_PATH}"
 	"${DEVBOX_INSTALL_PATH}" version
 fi
-
-# Install the onCreate helper so the devcontainer lifecycle hook can find it.
-FEATURE_DIR="$(dirname "$0")"
-install -o root -g root -m 0755 \
-	"${FEATURE_DIR}/devbox-on-create.sh" \
-	/usr/local/bin/devbox-on-create
-
-echo "devbox: onCreate helper installed at /usr/local/bin/devbox-on-create."
-
-# Install the postStart helper.
-install -o root -g root -m 0755 \
-	"${FEATURE_DIR}/devbox-post-start.sh" \
-	/usr/local/bin/devbox-post-start
-
-echo "devbox: postStart helper installed at /usr/local/bin/devbox-post-start."

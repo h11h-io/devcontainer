@@ -30,7 +30,6 @@ git --version
 zsh --version
 
 assert_executable "Git identity helper is executable" "/usr/local/bin/configure-git-identity"
-assert_executable "Devbox lifecycle helper is executable" "/usr/local/bin/devbox-on-create"
 assert_path "Oh My Zsh is installed globally" "/usr/local/share/oh-my-zsh"
 assert_path "managed zsh configuration exists" "${HOME}/.zshrc"
 grep -q 'managed by oh-my-zsh devcontainer feature' "${HOME}/.zshrc"

@@ -6,7 +6,7 @@ This repository publishes three reusable Dev Container features from
 | ID | Lifecycle hook |
 |---|---|
 | `git-identity-from-github` | `postStartCommand` |
-| `devbox` | `onCreateCommand`, `postStartCommand` |
+| `devbox` | build-time only |
 | `oh-my-zsh` | build-time only |
 
 Each feature has metadata and `install.sh` under `src/`, integration coverage

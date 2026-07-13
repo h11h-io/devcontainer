@@ -15,8 +15,6 @@ Code Dev Containers. It provides:
 - a small zsh environment.
 
 The repository owns dependency setup through one `devbox run setup` command.
-Set the Devbox feature's `installProjectPackages` option to `false` when using
-that command so the package graph is resolved only once.
 
 The base uses `docker-outside-of-docker`. Codespaces and local VS Code reuse
 their VM/host daemon; Coder templates must expose a Docker socket. Projects
@@ -28,7 +26,7 @@ host and container paths or avoid those bind mounts.
 | Feature | Reference | Purpose |
 |---|---|---|
 | Git identity | `ghcr.io/h11h-io/devcontainer/git-identity-from-github:1` | Configure `git user.name` and `user.email` from GitHub authentication. |
-| Devbox | `ghcr.io/h11h-io/devcontainer/devbox:1` | Install Devbox, prepare its project profile, and keep `nix-daemon` available. |
+| Devbox | `ghcr.io/h11h-io/devcontainer/devbox:1` | Install the Devbox CLI system-wide. |
 | Oh My Zsh | `ghcr.io/h11h-io/devcontainer/oh-my-zsh:1` | Install a configurable zsh environment. |
 
 ### Git identity
@@ -44,11 +42,7 @@ unless `overwrite` is true and never blocks container startup.
 ### Devbox
 
 ```json
-"ghcr.io/h11h-io/devcontainer/devbox:1": {
-  "version": "latest",
-  "exportGlobalProfile": false,
-  "installProjectPackages": false
-}
+"ghcr.io/h11h-io/devcontainer/devbox:1": {}
 ```
 
 Options:
@@ -56,13 +50,11 @@ Options:
 | Option | Default | Purpose |
 |---|---|---|
 | `version` | `latest` | Devbox CLI version. |
-| `exportGlobalProfile` | `true` | Add Devbox's global package profile to login shells. |
-| `installProjectPackages` | `true` | Run `devbox install` during `onCreate`; disable when `postCreateCommand` already runs repository setup. |
 
 The installer promotes Jetify's resolved executable into `/usr/local/bin` so
-non-root users do not repeat the launcher download. The lifecycle helper starts
-Nix when needed, exports project paths, and optionally installs the project
-packages. The post-start helper restores `nix-daemon` after container restarts.
+non-root users do not repeat the launcher download. Repositories own Nix package
+installation and PATH setup through their Devbox scripts and devcontainer
+configuration.
 
 ### Oh My Zsh
 
