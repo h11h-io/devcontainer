@@ -7,9 +7,15 @@ WORKSPACE="${containerWorkspaceFolder:-$PWD}"
 DOCKER_CMD="${DOCKER_CMD:-docker}"
 SUPABASE_CMD="${SUPABASE_CMD:-supabase}"
 DOCKER_WAIT_SECONDS="${SUPABASE_DOCKER_WAIT_SECONDS:-30}"
+PRE_PULL_IMAGES="${SUPABASE_PRE_PULL_IMAGES:-true}"
 PREPULL_MARKER="${HOME}/.cache/devcontainer/supabase-prepull.done"
 
 log() { echo "supabase-post-start: $*"; }
+
+if [ "$PRE_PULL_IMAGES" != "true" ]; then
+	log "image pre-pull disabled; images will be pulled on first 'supabase start'."
+	exit 0
+fi
 
 mkdir -p "$(dirname "$PREPULL_MARKER")"
 

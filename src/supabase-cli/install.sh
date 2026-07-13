@@ -3,6 +3,7 @@ set -e
 
 SUPABASE_CLI_VERSION="${VERSION:-2.84.2}"
 DOCKER_WAIT_SECONDS="${DOCKERWAITSECONDS:-30}"
+PRE_PULL_IMAGES="${PREPULLIMAGES:-true}"
 SUPABASE_BIN="/usr/local/bin/supabase"
 
 echo "supabase-cli: install.sh (built from git commit: @GIT_SHA@)"
@@ -49,6 +50,8 @@ install -o root -g root -m 0755 \
 
 # Bake the configured wait timeout into the installed script
 sed -i "s|DOCKER_WAIT_SECONDS=\"\${SUPABASE_DOCKER_WAIT_SECONDS:-30}\"|DOCKER_WAIT_SECONDS=\"\${SUPABASE_DOCKER_WAIT_SECONDS:-${DOCKER_WAIT_SECONDS}}\"|" \
+	/usr/local/bin/supabase-post-start
+sed -i "s|PRE_PULL_IMAGES=\"\${SUPABASE_PRE_PULL_IMAGES:-true}\"|PRE_PULL_IMAGES=\"\${SUPABASE_PRE_PULL_IMAGES:-${PRE_PULL_IMAGES}}\"|" \
 	/usr/local/bin/supabase-post-start
 
 echo "supabase-cli: post-start helper installed."

@@ -163,6 +163,15 @@ PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" \
 	pass "smoke: install exits 0 with all mocks present" ||
 	fail "smoke: install exits 0 with all mocks present" "exit code was $rc"
 
+# The feature option is baked into the installed post-start helper.
+TEST_BIN=$(new_tmp)
+make_mock_bin "$TEST_BIN"
+PATH="$TEST_BIN:$PATH" VERSION="2.84.2" DOCKERWAITSECONDS="30" PREPULLIMAGES=false \
+	DOCKER_CMD=docker sh "$INSTALL_SCRIPT" >/dev/null 2>&1
+grep -q 'SUPABASE_PRE_PULL_IMAGES:-false' "${TEST_BIN}/sed_calls.log" &&
+	pass "pre-pull option: false is baked into post-start helper" ||
+	fail "pre-pull option: false is baked into post-start helper" "sed log: $(cat "${TEST_BIN}/sed_calls.log" 2>/dev/null)"
+
 # 3. Constructs correct URL for x86_64
 # Use a non-existent version to bypass the "already installed" early-exit check.
 TEST_BIN=$(new_tmp)
@@ -235,7 +244,21 @@ EOF
 	chmod +x "$d/seq"
 }
 
-# 6. Skips when marker file exists
+# 6. Skips all pre-pull work when explicitly disabled
+TEST_BIN=$(new_tmp)
+make_post_start_mock "$TEST_BIN"
+TEST_HOME=$(new_tmp)
+out=$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" containerWorkspaceFolder="$TEST_HOME" \
+	DOCKER_CMD=docker SUPABASE_CMD=supabase SUPABASE_PRE_PULL_IMAGES=false \
+	bash "$POST_START_SCRIPT" 2>&1)
+echo "$out" | grep -q "pre-pull disabled" &&
+	pass "disabled: skips image pre-pull" ||
+	fail "disabled: skips image pre-pull" "output: $out"
+test ! -d "${TEST_HOME}/.cache/devcontainer" &&
+	pass "disabled: does not create pre-pull state" ||
+	fail "disabled: does not create pre-pull state" "cache directory exists"
+
+# 7. Skips when marker file exists
 TEST_BIN=$(new_tmp)
 make_post_start_mock "$TEST_BIN"
 TEST_HOME=$(new_tmp)
@@ -248,7 +271,7 @@ echo "$out" | grep -q "already completed" &&
 	pass "marker-exists: skips when marker present" ||
 	fail "marker-exists: skips when marker present" "output: $out"
 
-# 7. Skips when supabase CLI not found
+# 8. Skips when supabase CLI not found
 # Use SUPABASE_CMD pointing at a nonexistent name so the real system supabase is ignored
 TEST_BIN=$(new_tmp)
 make_post_start_mock "$TEST_BIN"
@@ -260,7 +283,7 @@ echo "$out" | grep -q "not found" &&
 	pass "no-supabase: skips when supabase CLI not found" ||
 	fail "no-supabase: skips when supabase CLI not found" "output: $out"
 
-# 8. Skips when Docker not ready after timeout
+# 9. Skips when Docker not ready after timeout
 TEST_BIN=$(new_tmp)
 make_post_start_mock "$TEST_BIN"
 cat >"${TEST_BIN}/docker" <<'EOF'
@@ -279,7 +302,7 @@ test ! -f "${TEST_HOME}/.cache/devcontainer/supabase-prepull.done" &&
 	pass "docker-timeout: marker NOT created when Docker not ready" ||
 	fail "docker-timeout: marker NOT created when Docker not ready" "marker file exists"
 
-# 9. Creates marker after successful pre-pull
+# 10. Creates marker after successful pre-pull
 TEST_BIN=$(new_tmp)
 make_post_start_mock "$TEST_BIN"
 TEST_HOME=$(new_tmp)
@@ -290,7 +313,7 @@ test -f "${TEST_HOME}/.cache/devcontainer/supabase-prepull.done" &&
 	pass "success: marker created after successful pre-pull" ||
 	fail "success: marker created after successful pre-pull" "marker file missing"
 
-# 10. Does NOT create marker after failed pre-pull
+# 11. Does NOT create marker after failed pre-pull
 TEST_BIN=$(new_tmp)
 make_post_start_mock "$TEST_BIN"
 cat >"${TEST_BIN}/supabase" <<'EOF'

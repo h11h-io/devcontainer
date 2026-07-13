@@ -1,7 +1,7 @@
 
 # Supabase CLI (supabase-cli)
 
-Installs the Supabase CLI. Docker is required at runtime for 'supabase start' (add docker-in-docker or docker-outside-of-docker for local services) but is NOT required to install the CLI. Pre-pulls Supabase Docker images on first container start via postStartCommand when Docker is available.
+Installs the Supabase CLI. Docker is required at runtime for `supabase start` (add docker-in-docker or docker-outside-of-docker for local services) but is not required to install the CLI. It can pre-pull Supabase Docker images on first container start when Docker is available.
 
 ## Example Usage
 
@@ -17,6 +17,7 @@ Installs the Supabase CLI. Docker is required at runtime for 'supabase start' (a
 |-----|-----|-----|-----|
 | version | Version of the Supabase CLI to install (e.g. '2.84.2'). Must match a tag on the supabase/cli GitHub releases page. | string | 2.84.2 |
 | dockerWaitSeconds | Seconds to wait for the Docker daemon to become ready before pre-pulling Supabase images. | string | 30 |
+| prePullImages | Pre-pull the local Supabase Docker images on first container start. Disable for a lighter, faster base workspace; images will be pulled when `supabase start` is first run. | boolean | true |
 
 
 
