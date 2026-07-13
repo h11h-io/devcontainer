@@ -33,7 +33,6 @@ This keeps the repository configuration portable and avoids a privileged Docker-
 | [Devbox](#devbox) | `ghcr.io/h11h-io/devcontainer/devbox:1` | Installs [Devbox](https://www.jetify.com/devbox) and runs `devbox install` on container creation |
 | [Oh My Zsh](#oh-my-zsh) | `ghcr.io/h11h-io/devcontainer/oh-my-zsh:1` | Installs zsh, Oh My Zsh, and a configurable set of plugins and themes |
 | [Project Setup](#project-setup) | `ghcr.io/h11h-io/devcontainer/project-setup:1` | Runs project setup tasks on container creation (dependency installs, env files, lefthook, direnv) |
-| [Supabase CLI](#supabase-cli) | `ghcr.io/h11h-io/devcontainer/supabase-cli:1` | Installs the Supabase CLI with optional Docker image pre-pull |
 | [Coder CLI](#coder) | `ghcr.io/h11h-io/devcontainer/coder:1` | Installs the [Coder](https://coder.com) CLI |
 | [Userspace Package Homes](#userspace-package-homes) | `ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1` | Configures writable userspace directories for global package installs (pnpm, pipx, npm) |
 
@@ -217,41 +216,6 @@ If a required tool is not found on `PATH`, the step is skipped with a warning an
 
 ---
 
-## Supabase CLI
-
-Installs the [Supabase CLI](https://supabase.com/docs/guides/cli). Local services require Docker at runtime, so add `docker-in-docker` or `docker-outside-of-docker` when needed. By default it pre-pulls Supabase images on first container start; lightweight base environments can defer that work until the first `supabase start`.
-
-### Usage
-
-```jsonc
-// devcontainer.json
-{
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/h11h-io/devcontainer/supabase-cli:1": {}
-  }
-}
-```
-
-### Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `version` | `string` | `"2.84.2"` | Supabase CLI version (must match a GitHub release tag) |
-| `dockerWaitSeconds` | `string` | `"30"` | Seconds to wait for Docker daemon readiness before pre-pulling images |
-| `prePullImages` | `boolean` | `true` | Pre-pull local Supabase images on first start; disable for a faster base workspace |
-
-### How it works
-
-- **Build time (`install.sh`)**: downloads the arch-aware tarball from GitHub releases. Docker is only needed later for local services.
-- **Container start (`postStartCommand`)**: runs `supabase-post-start` when `prePullImages` is enabled, which:
-  1. Checks for a marker file — skips if images were already pulled.
-  2. Waits for Docker to become ready (configurable timeout).
-  3. Runs `supabase start && supabase stop` to pull all required images.
-  4. Creates a marker file so subsequent starts are instant.
-
----
-
 ## Coder CLI
 
 Installs the [Coder CLI](https://coder.com) for interacting with Coder workspaces.
@@ -373,9 +337,6 @@ Here's an example `devcontainer.json` that uses all features together:
       "lefthookInstall": true,
       "direnvAllow": true
     },
-    "ghcr.io/h11h-io/devcontainer/supabase-cli:1": {
-      "version": "2.84.2"
-    },
     "ghcr.io/h11h-io/devcontainer/coder:1": {},
     "ghcr.io/h11h-io/devcontainer/userspace-pkg-homes:1": {}
   }
@@ -404,7 +365,6 @@ bash test/unit/test_git_identity.sh
 bash test/unit/test_devbox_install.sh
 bash test/unit/test_oh_my_zsh_install.sh
 bash test/unit/test_project_setup.sh
-bash test/unit/test_supabase_cli_install.sh
 bash test/unit/test_coder_install.sh
 bash test/unit/test_userspace_pkg_homes.sh
 ```

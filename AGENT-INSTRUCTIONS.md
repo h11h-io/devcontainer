@@ -35,7 +35,6 @@ test/unit/
 | `git-identity-from-github` | `ghcr.io/h11h-io/devcontainer/git-identity-from-github:1` | `postStartCommand: configure-git-identity` |
 | `devbox` | `ghcr.io/h11h-io/devcontainer/devbox:1` | `onCreateCommand: devbox-on-create` |
 | `oh-my-zsh` | `ghcr.io/h11h-io/devcontainer/oh-my-zsh:1` | (none — build-time only) |
-| `supabase-cli` | `ghcr.io/h11h-io/devcontainer/supabase-cli:1` | `postStartCommand: supabase-post-start` |
 | `coder` | `ghcr.io/h11h-io/devcontainer/coder:1` | (none — build-time only) |
 
 ## Mandatory Rules
@@ -68,7 +67,7 @@ HOME="$TEST_HOME" PATH="$MOCK_DIR:$PATH" GITHUB_TOKEN="tok" bash "$SCRIPT"
 [ "$(HOME="$TEST_HOME" git config --global user.name)" = "Alice" ] && pass "..." || fail "..."
 ```
 
-For scripts that check `command -v <tool>`, use env vars like `DOCKER_CMD`, `SUPABASE_CMD`, `CODER_CMD` pointing at sentinel names (`__no_docker_here__`) to guarantee the command is not found without relying on PATH-only isolation.
+For scripts that check `command -v <tool>`, use env vars like `DOCKER_CMD` and `CODER_CMD` pointing at sentinel names (`__no_docker_here__`) to guarantee the command is not found without relying on PATH-only isolation.
 
 ## Test Harness Convention
 
@@ -118,7 +117,7 @@ devcontainer features test --skip-scenarios -f <feature> -i mcr.microsoft.com/de
 
 ## Accessing External Documentation
 
-When implementing a feature that relies on a third-party tool (e.g. devbox, Nix, Supabase CLI), always look up the official installation guide, GitHub Action, or source code first — these are the authoritative reference for the correct environment variables and flags to use.
+When implementing a feature that relies on a third-party tool (e.g. Devbox or Nix), always look up the official installation guide, GitHub Action, or source code first — these are the authoritative reference for the correct environment variables and flags to use.
 
 **If a URL is blocked or unreachable**, say so explicitly in a PR comment or reply rather than guessing. For example:
 

@@ -36,16 +36,6 @@ apply_feature_env_overrides() {
 		env_pairs+=" "
 	done < <(echo "$options_json" | jq -r 'keys[]')
 
-	# Feature-specific compatibility aliases used by existing install.sh scripts.
-	case "$key" in
-	*"/supabase-cli"*)
-		if echo "$options_json" | jq -e 'has("dockerWaitSeconds")' >/dev/null; then
-			value="$(echo "$options_json" | jq -r '.dockerWaitSeconds')"
-			env_pairs+="DOCKERWAITSECONDS=$(printf '%q' "$value") "
-		fi
-		;;
-	esac
-
 	echo "$env_pairs"
 }
 

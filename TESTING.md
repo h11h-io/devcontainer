@@ -98,9 +98,6 @@ cat ~/.zshrc
 # devbox
 devbox version
 
-# supabase-cli
-supabase --version
-
 # coder
 coder version
 ```
@@ -119,7 +116,6 @@ for f in test/unit/test_*.sh; do bash "$f"; done
 
 # Run a specific feature's tests
 bash test/unit/test_devbox_install.sh
-bash test/unit/test_supabase_cli_install.sh
 bash test/unit/test_git_identity.sh
 bash test/unit/test_oh_my_zsh_install.sh
 bash test/unit/test_coder_install.sh
@@ -134,7 +130,6 @@ Key mock patterns:
 - **`curl` mock** — records the URL to a log file; emits a no-op installer script
 - **`chmod` mock** — no-ops when the target path doesn't exist (e.g. `/usr/local/bin/devbox` in a clean env); delegates to real `chmod` for existing files
 - **`install` mock** — copies src to `$TEST_BIN/$(basename $dst)` for inspection
-- **`DOCKER_CMD="__no_docker_here__"`** — simulates Docker being absent for supabase-cli tests
 - **`coder` / `gh` mocks (exit 1)** — prevent fallback token acquisition in git-identity no-token tests
 
 ---
@@ -155,19 +150,11 @@ devcontainer features test \
   -i mcr.microsoft.com/devcontainers/base:ubuntu-22.04 \
   .
 
-# Replace 'devbox' with any of: devbox, oh-my-zsh, supabase-cli, coder, git-identity-from-github
+# Replace 'devbox' with any of: devbox, oh-my-zsh, coder, git-identity-from-github
 ```
 
 Test assertions for each feature live in `test/<feature-name>/test.sh`.
 
-### DinD / privileged mode
-
-If you need to test features that require Docker inside the container (e.g. `supabase-cli`), note that
-`devcontainer features test` does **not** run containers in privileged mode. The supabase-cli integration
-test handles this gracefully: the CLI is installed regardless, but the postStartCommand will warn if Docker
-is unavailable and retry on the next container start.
-
----
 
 ## CI Simulation with act
 
