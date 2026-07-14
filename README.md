@@ -11,7 +11,9 @@ Code Dev Containers. It provides:
 
 - a Docker CLI connected to the platform daemon;
 - GitHub CLI plus automatic Git identity;
+- Node.js and the Claude Code CLI;
 - Devbox/Nix for repository-owned tools;
+- direnv for automatic per-directory environment activation;
 - a small zsh environment.
 
 The repository owns dependency setup through one `devbox run setup` command.
